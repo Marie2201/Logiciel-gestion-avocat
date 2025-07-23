@@ -5,6 +5,7 @@ from flask_wtf.csrf import CSRFProtect
 from flask_moment import Moment
 from flask_migrate import Migrate # Importe Flask-Migrate ici
 from flask_login import LoginManager
+from dotenv import load_dotenv
 
 app = Flask(__name__)
 
@@ -16,6 +17,11 @@ app.config['SQLALCHEMY_ECHO'] = True
 
 
 db = SQLAlchemy(app) 
+
+load_dotenv()
+
+app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 
 # 2. CSRF Protection
 csrf = CSRFProtect(app)
@@ -42,5 +48,9 @@ from app.models import User
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+
+
+
 
 
