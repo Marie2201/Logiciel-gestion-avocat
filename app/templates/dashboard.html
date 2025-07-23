@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Tableau de bord{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <h1 class="display-4 fw-bold text-primary"><i class="bi bi-speedometer2 me-3"></i>Tableau de bord</h1>
+        {# Si tu as configuré Flask-Moment correctement dans app.py et base.html #}
+        <small class="text-muted">Dernière mise à jour : {{ moment(now).format('LLL') }}</small>
+        {# Sinon, utilise simplement: <small class="text-muted">Dernière mise à jour : {{ now.strftime('%d/%m/%Y %H:%M') }}</small> #}
+    </div>
+
+        <!-- Ligne 1 : 3 premières cartes -->
+    <div class="row g-4 mb-4">
+        <!-- Total Clients -->
+        <div class="col-lg-4 col-md-6 col-sm-12">
+            <div class="card dashboard-card bg-gradient-primary shadow-lg">
+                <div class="card-body position-relative">
+                    <i class="bi bi-people-fill card-icon"></i>
+                    <h5 class="card-title">Total Clients</h5>
+                    <p class="card-value">{{ total_clients }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dossiers Actifs -->
+        <div class="col-lg-4 col-md-6 col-sm-12">
+            <div class="card dashboard-card bg-gradient-success shadow-lg">
+                <div class="card-body position-relative">
+                    <i class="bi bi-folder-check card-icon"></i>
+                    <h5 class="card-title">Dossiers Actifs</h5>
+                    <p class="card-value">{{ dossiers_actifs }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Factures En Attente -->
+        <div class="col-lg-4 col-md-6 col-sm-12">
+            <div class="card dashboard-card bg-gradient-warning shadow-lg">
+                <div class="card-body position-relative">
+                    <i class="bi bi-cash-stack card-icon"></i>
+                    <h5 class="card-title">Factures En Attente</h5>
+                    <p class="card-value">{{ factures_en_attente }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ligne 2 : 2 dernières cartes -->
+    <div class="row g-4 mb-5">
+        <!-- Montant Facturé (TTC) -->
+        <div class="col-lg-6 col-md-6 col-sm-12">
+            <div class="card dashboard-card bg-gradient-info shadow-lg">
+                <div class="card-body position-relative">
+                    <i class="bi bi-piggy-bank card-icon"></i>
+                    <h5 class="card-title">Montant Facturé (TTC)</h5>
+                    <p class="card-value">{{ "{:,.2f}".format(montant_total_facture_ttc) }} €</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timesheets à facturer -->
+        <div class="col-lg-6 col-md-6 col-sm-12">
+            <div class="card dashboard-card bg-gradient-danger shadow-lg">
+                <div class="card-body position-relative">
+                    <i class="bi bi-stopwatch card-icon"></i>
+                    <h5 class="card-title">Timesheets à facturer</h5>
+                    <p class="card-value">{{ timesheets_en_attente_facturation }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <h3 class="mb-4 text-primary"><i class="bi bi-box-arrow-in-right me-2"></i>Accès Rapides</h3>
+    <div class="row g-4 mb-5">
+        <div class="col-md-6 col-lg-4">
+            <a href="/clients" class="card access-card text-decoration-none">
+                <div class="card-body">
+                    <i class="bi bi-people-fill card-icon-lg text-primary"></i>
+                    <div>
+                        <h5 class="card-title-lg mb-1">Gérer les Clients</h5>
+                        <p class="card-text-sm mb-0 text-muted">Ajouter, modifier ou consulter les informations clients.</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-6 col-lg-4">
+            <a href="/dossiers" class="card access-card text-decoration-none">
+                <div class="card-body">
+                    <i class="bi bi-folder-fill card-icon-lg text-success"></i>
+                    <div>
+                        <h5 class="card-title-lg mb-1">Gérer les Dossiers</h5>
+                        <p class="card-text-sm mb-0 text-muted">Suivre les dossiers juridiques et leur avancement.</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-6 col-lg-4">
+            <a href="/factures" class="card access-card text-decoration-none">
+                <div class="card-body">
+                    <i class="bi bi-receipt-cutoff card-icon-lg text-warning"></i>
+                    <div>
+                        <h5 class="card-title-lg mb-1">Gérer les Factures</h5>
+                        <p class="card-text-sm mb-0 text-muted">Établir, suivre et classer vos factures.</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-6 col-lg-4">
+            <a href="/timesheets" class="card access-card text-decoration-none">
+                <div class="card-body">
+                    <i class="bi bi-journal-check card-icon-lg text-info"></i>
+                    <div>
+                        <h5 class="card-title-lg mb-1">Gérer les Timesheets</h5>
+                        <p class="card-text-sm mb-0 text-muted">Enregistrer le temps passé sur chaque tâche.</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

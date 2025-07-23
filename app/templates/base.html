@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}HoudaConnect{% endblock %}</title>
+
+    {# TOUS LES LIENS CSS VONT ICI DANS LE HEAD #}
+    {# 1. Bootstrap CSS #}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    {# 2. Bootstrap Icons CSS #}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    {# 3. DataTables CSS #}
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
+
+    {# Ton CSS PERSONNALISÉ POUR LE TABLEAU DE BORD ET LE RESTE #}
+    {# Il est recommandé de le mettre dans un fichier .css séparé (ex: static/style.css) #}
+    {# Mais pour l'instant, on le met directement ici pour s'assurer qu'il est bien chargé #}
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .sidebar {
+            height: 100vh;
+            background-color: #343a40;
+            padding: 1rem;
+            position: fixed; /* Rend la barre latérale fixe */
+            width: 16.666667%; /* Correspond à col-md-2 */
+            top: 0;
+            left: 0;
+            z-index: 1000;
+        }
+        .sidebar a {
+            color: white;
+            display: block;
+            padding: 0.5rem;
+            text-decoration: none;
+            transition: background-color 0.2s;
+        }
+        .sidebar a:hover {
+            background-color: #495057;
+        }
+        .main {
+            margin-left: 16.666667%; /* Déplace le contenu principal pour compenser la sidebar fixe */
+            padding: 2rem;
+        }
+        .dataTables_filter {
+            margin-bottom: 1rem !important;
+        }
+        #dossiersTable, #dossiersTable th, #dossiersTable td {
+            font-size: 0.85rem !important;
+        }
+        #timesheetsTable, #timesheetsTable th, #timesheetsTable td {
+            font-size: 0.85rem !important;
+        }
+        #flash-messages {
+            margin-bottom: 1.5rem;
+        }
+
+        /* Styles spécifiques au tableau de bord (copiés de ma réponse précédente) */
+        .dashboard-card {
+            border: none;
+            border-radius: 1rem;
+            transition: all 0.3s ease;
+            overflow: hidden;
+            position: relative; /* Pour positionner l'icône */
+        }
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+        }
+        .dashboard-card .card-body {
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 150px;
+        }
+        .dashboard-card .card-icon {
+            font-size: 3rem;
+            color: rgba(255, 255, 255, 0.7);
+            position: absolute;
+            top: 1rem;
+            right: 1.5rem;
+            opacity: 0.2;
+            z-index: 0;
+        }
+        .dashboard-card .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+            z-index: 1;
+            position: relative;
+        }
+        .dashboard-card .card-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #ffffff;
+            z-index: 1;
+            position: relative;
+        }
+        .bg-gradient-primary {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+        }
+        .bg-gradient-success {
+            background: linear-gradient(45deg, #28a745, #1e7e34);
+        }
+        .bg-gradient-warning {
+            background: linear-gradient(45deg, #ffc107, #d39e00);
+        }
+        .bg-gradient-info {
+            background: linear-gradient(45deg, #17a2b8, #117a8b);
+        }
+        .bg-gradient-danger {
+            background: linear-gradient(45deg, #dc3545, #b02a37);
+        }
+        .access-card {
+            border: none;
+            border-radius: 0.75rem;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,.05);
+        }
+        .access-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0.5rem 1rem rgba(0,0,0,.1);
+        }
+        .access-card .card-body {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 1.5rem;
+        }
+        .access-card .card-icon-lg {
+            font-size: 2.5rem;
+            color: var(--bs-primary);
+        }
+        .access-card .card-title-lg {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #333;
+        }
+        .access-card .card-text-sm {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .slide-in-top {
+            animation: slideInTop 0.8s ease-out;
+            transform: translateY(-50px); /* Commence au-dessus */
+            opacity: 0;
+            animation-fill-mode: forwards;
+        }
+
+        @keyframes slideInTop {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container-fluid">
+        <div class="row">
+            {# Barre latérale de navigation #}
+            <nav class="col-md-2 sidebar">
+                <h4 class="text-white mb-4">MyHouda</h4>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/"><i class="bi bi-speedometer2 me-2"></i>Tableau de bord</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/clients"><i class="bi bi-people-fill me-2"></i>Clients</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dossiers"><i class="bi bi-folder-fill me-2"></i>Dossiers</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/timesheets"><i class="bi bi-stopwatch-fill me-2"></i>Timesheets</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/factures"><i class="bi bi-receipt-cutoff me-2"></i>Factures</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-danger" href="{{ url_for('logout') }}">
+                            <i class="bi bi-box-arrow-right"></i> Déconnexion
+                        </a>
+                    </li>
+
+                </ul>
+            </nav>
+
+            {# Contenu principal de la page #}
+            {# Le col-md-10 offset-md-2 est crucial pour que le contenu ne soit pas sous la sidebar fixe #}
+            <main class="col-md-10 offset-md-2 main">
+                {# Affichage des messages flash #}
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div id="flash-messages">
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+
+                {# Ici sera inséré le contenu spécifique à chaque page (dashboard.html, clients.html, etc.) #}
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+
+    {# TOUS LES SCRIPTS JAVASCRIPT VONT ICI JUSTE AVANT LA FERMETURE DU BODY #}
+    {# 1. jQuery #}
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    {# 2. Bootstrap JS #}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    {# 3. DataTables JS (dépend de jQuery) #}
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
+
+    {# 4. Chart.js et son plugin (dépendent de Chart.js lui-même) #}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+
+    {# 5. Flask-Moment et scripts personnalisés spécifiques aux pages (via les blocs) #}
+    {# Ce bloc sera étendu par les templates enfants comme dashboard.html #}
+    {% block scripts %}
+        {{ moment.include_moment() }} {# Ceci inclura moment.js et ses dépendances #}
+        {{ moment.locale('fr') }}
+        {# Les scripts spécifiques à dashboard.html (Chart.js code) iront ici quand dashboard.html étend ce bloc #}
+    {% endblock %}
+
+</body>
+</html>

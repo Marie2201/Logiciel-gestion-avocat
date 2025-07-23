@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="container py-4 px-4 rounded shadow-sm" style="background-color: #e8f5e9;">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="text-success"><i class="bi bi-folder2-open"></i> Gestion des Dossiers</h2>
+            <button class="btn btn-success shadow" data-bs-toggle="modal" data-bs-target="#ajoutDossierModal">
+                <i class="bi bi-plus-circle"></i> Ajouter un dossier
+            </button>
+        </div>
+
+        <table id="dossiersTable" class="table table-bordered table-hover rounded shadow w-100 overflow-hidden" style="background-color: #ffffff;">
+            <thead class="table-success text-dark">
+                <tr>
+                    <th>Nature du dossier</th>
+                    <th>Client</th>
+                    <th>Date d'ouverture</th>
+                    <th>Procédures</th>
+                    <th>Statut</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dossier in dossiers %}
+                <tr class="dossier-row"
+                    data-id="{{ dossier.id }}"
+                    data-nom="{{ dossier.nom }}"
+                    data-client="{{ dossier.client.societe }}"
+                    data-date="{{ dossier.date_ouverture.strftime('%d/%m/%Y') }}"
+                    data-procedure="{{ dossier.procedure }}"
+                    data-statut="{{ dossier.statut }}"
+                    data-description="{{ dossier.description }}">
+                    <td>{{ dossier.nom }}</td>
+                    <td>{{ dossier.client.societe }}</td>
+                    <td>{{ dossier.date_ouverture.strftime('%d/%m/%Y') }}</td>
+                    <td>{{ dossier.procedure }}</td>
+                    <td>
+                        {% if dossier.statut == 'En cours' %}<span class="badge bg-warning text-dark">⏳ En cours</span>
+                        {% elif dossier.statut == 'Terminé' %}<span class="badge bg-success">✔️ Terminé</span>
+                        {% else %}<span class="badge bg-secondary">{{ dossier.statut }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        {{ dossier.description }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+<div id="context-menu" class="shadow rounded" style="display: none; position: absolute; z-index: 9999; background-color: white; border: 1px solid #ccc; padding: 5px;">
+    <ul class="list-unstyled m-0">
+        <li><a href="#" id="exportExcel" class="dropdown-item"><i class="bi bi-file-earmark-excel"></i> Exporter Excel</a></li>
+        <li><a href="#" id="exportPDF" class="dropdown-item"><i class="bi bi-file-pdf"></i> Exporter PDF</a></li>
+        <li><a href="#" id="printTable" class="dropdown-item"><i class="bi bi-printer"></i> Imprimer</a></li>
+    </ul>
+</div>
+
+<div class="modal fade" id="ajoutDossierModal" tabindex="-1" aria-labelledby="ajoutDossierLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="POST">
+        {{ form.hidden_tag() }}
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title" id="ajoutDossierLabel">Ajouter un dossier</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+        </div>
+        <div class="modal-body row g-3">
+            <div class="col-md-6">
+                {{ form.nom.label(class="form-label") }}
+                {{ form.nom(class="form-control") }}
+            </div>
+            <div class="col-md-6">
+                {{ form.date_ouverture.label(class="form-label") }}
+                {{ form.date_ouverture(class="form-control") }}
+            </div>
+            <div class="col-md-6">
+                {{ form.procedure.label(class="form-label") }}
+                {{ form.procedure(class="form-select") }}
+            </div>
+            <div class="col-md-6">
+                {{ form.statut.label(class="form-label") }}
+                {{ form.statut(class="form-select") }}
+            </div>
+            <div class="col-md-6">
+                {{ form.client_id.label(class="form-label") }}
+                {{ form.client_id(class="form-select") }}
+            </div>
+            <div class="col-md-12">
+                {{ form.description.label(class="form-label") }}
+                {{ form.description(class="form-control", rows="2") }}
+            </div>
+        </div>
+        <div class="modal-footer">
+          {{ form.submit(class="btn btn-primary") }}
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="detailDossierModal" tabindex="-1" aria-labelledby="detailDossierLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title" id="detailDossierLabel">Détail du Dossier</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+      </div>
+      <div class="modal-body">
+          <div class="row">
+              <div class="col-md-6 mb-3">
+                  <div class="card h-100 shadow-sm border-light">
+                      <div class="card-body">
+                          <h6 class="card-title text-primary"><i class="bi bi-info-circle me-2"></i>Informations Principales</h6>
+                          <hr>
+                          <p class="card-text mb-1"><strong>Nature :</strong> <span id="detail-nom" class="fw-normal"></span></p>
+                          <p class="card-text mb-1"><strong>Client :</strong> <span id="detail-client" class="fw-normal"></span></p>
+                          <p class="card-text mb-1"><strong>Date d'ouverture :</strong> <span id="detail-date" class="fw-normal"></span></p>
+                          <p class="card-text mb-0"><strong>Procédures :</strong> <span id="detail-procedure" class="fw-normal"></span></p>
+                      </div>
+                  </div>
+              </div>
+              <div class="col-md-6 mb-3">
+                  <div class="card h-100 shadow-sm border-light">
+                      <div class="card-body">
+                          <h6 class="card-title text-primary"><i class="bi bi-bar-chart-line me-2"></i>Statut</h6>
+                          <hr>
+                          <p class="card-text mb-0"><strong>Statut :</strong> <span id="detail-statut" class="fw-normal"></span></p>
+                          <p class="text-muted small mb-0 mt-3">
+                            <i class="bi bi-exclamation-circle me-1"></i>Le statut indique l'avancement du dossier.
+                          </p>
+                      </div>
+                  </div>
+              </div>
+              <div class="col-12">
+                  <div class="card shadow-sm border-light">
+                      <div class="card-body">
+                          <h6 class="card-title text-primary"><i class="bi bi-text-left me-2"></i>Description Détaillée</h6>
+                          <hr>
+                          <p id="detail-description" class="card-text text-muted fst-italic"></p>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      </div>
+      <div class="modal-footer">
+                <a id="editDossierLink" class="btn btn-outline-primary">Modifier</a>
+                <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal">Supprimer</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{# Modal de confirmation de suppression (remplace confirm()) #}
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="confirmDeleteLabel">Confirmer la suppression</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                Êtes-vous sûr de vouloir supprimer ce dossier ? Cette action est irréversible.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <a id="editLink" class="btn btn-outline-primary"><i class="bi bi-pencil-square me-1"></i> Modifier</a>
+                <form id="deleteTimesheetForm" method="POST" style="display:inline;">
+                    {{ delete_form.hidden_tag() }}
+                    <button type="submit" class="btn btn-danger">Supprimer</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function () {
+    const table = $('#dossiersTable').DataTable({
+        autoWidth: false,
+        responsive: true,
+        dom: 'frtip', // 'B' active les boutons d'exportation
+        buttons: [
+            {
+                extend: 'excelHtml5',
+                text: '<i class="bi bi-file-earmark-excel"></i> Exporter Excel',
+                filename: 'dossiers_excel',
+                exportOptions: {
+                    columns: [0, 1, 2, 3, 4, 5]
+                }
+            },
+            {
+                extend: 'pdfHtml5',
+                text: '<i class="bi bi-file-pdf"></i> Exporter PDF',
+                filename: 'dossiers_pdf',
+                orientation: 'landscape',
+                pageSize: 'A4',
+                exportOptions: {
+                    columns: [0, 1, 2, 3, 4, 5]
+                }
+            },
+            {
+                extend: 'print',
+                text: '<i class="bi bi-printer"></i> Imprimer',
+                exportOptions: {
+                    columns: [0, 1, 2, 3, 4, 5]
+                }
+            }
+        ],
+        language: {
+            search: "🔍 Rechercher :",
+            lengthMenu: "",
+            info: "",
+            infoEmpty: "",
+            paginate: {
+                previous: "Précédent",
+                next: "Suivant"
+            },
+            zeroRecords: "Aucun dossier trouvé"
+        }
+    });
+
+
+    $('.dossier-row').on('dblclick', function() {
+        $('#detail-nom').text($(this).data('nom'));
+        $('#detail-client').text($(this).data('client'));
+        $('#detail-date').text($(this).data('date'));
+        $('#detail-procedure').text($(this).data('procedure'));
+
+        // générer une facture
+        $('.dossier-row').on('dblclick', function() {
+        const dossierId = $(this).data('id'); // Récupérer l'ID du dossier
+
+        $('#detail-nom').text($(this).data('nom'));
+        $('#detail-client').text($(this).data('client'));
+        $('#detail-date').text($(this).data('date'));
+        $('#detail-procedure').text($(this).data('procedure'));
+        
+        // Gérer le statut avec le badge
+        const statutDossierText = $(this).data('statut');
+        let statutDossierBadgeHtml = `<span class="badge bg-secondary">${statutDossierText}</span>`; // Default
+        if (statutDossierText === 'En cours') { // Assure-toi que la chaîne correspond à tes données
+            statutDossierBadgeHtml = `<span class="badge bg-warning text-dark">${statutDossierText}</span>`;
+        } else if (statutDossierText === 'Terminé') { // Assure-toi que la chaîne correspond à tes données
+            statutDossierBadgeHtml = `<span class="badge bg-success">${statutDossierText}</span>`;
+        }
+        $('#detail-statut').html(statutDossierBadgeHtml); // Utilise .html() pour insérer le HTML du badge
+
+        $('#detail-description').text($(this).data('description'));
+        $('#editLink').attr('href', '/dossiers/modifier/' + dossierId); // Utilise dossierId
+        $('#deleteForm').attr('action', '/dossiers/supprimer/' + dossierId); // Utilise dossierId
+
+        // Mettre à jour l'action du formulaire de génération de facture
+        $('#genererFactureForm').attr('action', '/dossiers/' + dossierId + '/generer_facture');
+
+        $('#detailDossierModal').modal('show');
+    });
+        
+        // Gérer le statut avec le badge
+        const statutDossierText = $(this).data('statut');
+        let statutDossierBadgeHtml = `<span class="badge bg-secondary">${statutDossierText}</span>`; // Default
+        if (statutDossierText === 'En cours') {
+            statutDossierBadgeHtml = `<span class="badge bg-warning text-dark">${statutDossierText}</span>`;
+        } else if (statutDossierText === 'Terminé') {
+            statutDossierBadgeHtml = `<span class="badge bg-success">${statutDossierText}</span>`;
+        }
+        $('#detail-statut').html(statutDossierBadgeHtml); // Utilise .html() pour insérer le HTML du badge
+
+        $('#detail-description').text($(this).data('description'));
+        $('#editLink').attr('href', '/dossiers/modifier/' + $(this).data('id'));
+        $('#deleteForm').attr('action', '/dossiers/supprimer/' + $(this).data('id'));
+        $('#detailDossierModal').modal('show');
+    });
+
+    // Gestion du clic droit pour afficher le menu contextuel
+    $('#dossiersTable tbody').on('contextmenu', 'tr', function (e) {
+        e.preventDefault();
+        $('#context-menu').css({ top: e.pageY + 'px', left: e.pageX + 'px' }).show();
+    });
+
+    // Cacher le menu contextuel lors d'un clic ailleurs
+    $(document).on('click', function () {
+        $('#context-menu').hide();
+    });
+
+    // Déclenchement des actions d'export/impression via les boutons DataTables
+    $('#exportExcel').on('click', function (e) {
+        e.preventDefault();
+        table.button('.buttons-excel').trigger();
+    });
+
+    $('#exportPDF').on('click', function (e) {
+        e.preventDefault();
+        table.button('.buttons-pdf').trigger();
+    });
+
+    $('#printTable').on('click', function (e) {
+        e.preventDefault();
+        table.button('.buttons-print').trigger();
+    });
+    // Supprimer tous les messages flash avec un effet de fondu après 5 secondes
+    setTimeout(() => {
+        const alerts = document.querySelectorAll('#flash-messages .alert');
+        alerts.forEach(el => {
+            el.classList.remove('show');
+            el.classList.add('fade');
+            setTimeout(() => el.remove(), 500);
+        });
+    }, 5000);
+});
+</script>
+{% endblock %}

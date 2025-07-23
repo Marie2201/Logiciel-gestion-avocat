@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block title %}Générer une Facture{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="text-primary mb-4"><i class="bi bi-file-earmark-plus"></i> Générer une Facture</h2>
+
+    <form method="GET" class="row g-3 mb-4">
+        {% if current_user.role in ['admin', 'associé'] %}
+        <div class="col-md-4">
+            <label for="utilisateur" class="form-label">Utilisateur</label>
+            <select class="form-select" id="utilisateur" name="utilisateur_id">
+                <option value="">Tous les utilisateurs</option>
+                {% for user in utilisateurs %}
+                    <option value="{{ user.id }}" {% if request.args.get('utilisateur_id', type=int) == user.id %}selected{% endif %}>
+                        {{ user.nom }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
+        <div class="col-md-3">
+            <label class="form-label">Date de début</label>
+            <input type="date" class="form-control" name="date_debut" value="{{ request.args.get('date_debut', '') }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Date de fin</label>
+            <input type="date" class="form-control" name="date_fin" value="{{ request.args.get('date_fin', '') }}">
+        </div>
+        <div class="col-md-2 align-self-end">
+            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Filtrer</button>
+        </div>
+        <div class="form-group">
+            <label for="devise">Devise</label>
+            <select name="devise" id="devise" class="form-select">
+                <option value="EUR">Euro (€)</option>
+                <option value="FCFA">Franc CFA (FCFA)</option>
+            </select>
+        </div>
+
+    </form>
+
+    {% if timesheets %}
+    <form method="POST" action="{{ url_for('generer_facture') }}">
+        {{ form.hidden_tag() }}
+        <div class="table-responsive shadow-sm">
+            <table class="table table-bordered table-hover" id="timesheetSelectionTable">
+                <thead class="table-light">
+                    <tr>
+                        <th><input type="checkbox" id="checkAll"></th>
+                        <th>Date</th>
+                        <th>Client</th>
+                        <th>Dossier</th>
+                        <th>Utilisateur</th>
+                        <th>Montant HT</th>
+                        <th>Montant TTC</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ts in timesheets %}
+                    <tr>
+                        <td><input type="checkbox" name="timesheet_ids" value="{{ ts.id }}"></td>
+                        <td>{{ ts.date.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ ts.dossier.client.societe }}</td>
+                        <td>{{ ts.dossier.nom }}</td>
+                        <td>{{ ts.user.nom }}</td>
+                        <td>{{ '{:,.2f}'.format(ts.montant_ht) }} €</td>
+                        <td>{{ '{:,.2f}'.format(ts.montant_ttc) }} €</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mt-3 text-end">
+            <button type="submit" class="btn btn-success"><i class="bi bi-check-circle"></i> Générer la facture</button>
+        </div>
+    </form>
+    {% else %}
+        <p class="text-muted fst-italic">Aucun timesheet trouvé pour les critères sélectionnés.</p>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('checkAll').addEventListener('click', function() {
+    const checkboxes = document.querySelectorAll('input[name="timesheet_ids"]');
+    checkboxes.forEach(cb => cb.checked = this.checked);
+});
+</script>
+{% endblock %}

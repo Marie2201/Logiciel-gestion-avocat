@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Modifier le dossier</h2>
+
+    <form method="POST">
+        {{ form.hidden_tag() }}
+
+        <div class="mb-3">
+            {{ form.nom.label(class="form-label") }}
+            {{ form.nom(class="form-control") }}
+        </div>
+
+        <div class="mb-3">
+            {{ form.date_ouverture.label(class="form-label") }}
+            {{ form.date_ouverture(class="form-control") }}
+        </div>
+
+        <div class="mb-3">
+            {{ form.procedure.label(class="form-label") }}
+            {{ form.procedure(class="form-select") }}
+        </div>
+
+        <div class="mb-3">
+            {{ form.statut.label(class="form-label") }}
+            {{ form.statut(class="form-select") }}
+        </div>
+
+        <div class="mb-3">
+            {{ form.client_id.label(class="form-label") }}
+            {{ form.client_id(class="form-select") }}
+        </div>
+
+        <div class="mb-3">
+            {{ form.description.label(class="form-label") }}
+            {{ form.description(class="form-control", rows="3") }}
+        </div>
+
+        <button type="submit" class="btn btn-primary">Enregistrer les modifications</button>
+        <a href="{{ url_for('dossiers') }}" class="btn btn-secondary">Annuler</a>
+    </form>
+</div>
+{% endblock %}

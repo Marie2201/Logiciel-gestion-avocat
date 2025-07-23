@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4 slide-in-top"></div>
+
+    <h2 class="text-primary">✏️ Modifier le Timesheet</h2>
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        <div class="row g-3">
+            <div class="col-md-4">
+                {{ form.date.label }}
+                {{ form.date(class="form-control") }}
+            </div>
+
+            <div class="col-md-4">
+                {{ form.heure_debut.label }}
+                {{ form.heure_debut(class="form-control") }}
+            </div>
+
+            <div class="col-md-4">
+                {{ form.heure_fin.label }}
+                {{ form.heure_fin(class="form-control") }}
+            </div>
+
+            <div class="col-md-6">
+                {{ form.taux_horaire.label }}
+                {{ form.taux_horaire(class="form-control") }}
+            </div>
+
+            <div class="col-md-6">
+                {{ form.dossier_id.label }}
+                {{ form.dossier_id(class="form-select") }}
+            </div>
+
+            <div class="col-md-6">
+                {{ form.utilisateur_id.label }}
+                {{ form.utilisateur_id(class="form-select") }}
+            </div>
+
+            <div class="col-md-6">
+                {{ form.statut.label }}
+                {{ form.statut(class="form-select") }}
+            </div>
+
+            <div class="col-md-12">
+                {{ form.description.label }}
+                {{ form.description(class="form-control", rows="2") }}
+            </div>
+
+            <button type="submit" class="btn btn-primary">Enregistrer les modifications</button>
+              <a href="{{ url_for('timesheets') }}" class="btn btn-secondary">Annuler</a>
+            </form>
+</div>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="text-primary mb-4"><i class="bi bi-pencil-square me-2"></i>Modifier la Facture</h2>
+    <form method="POST">
+        {{ form.hidden_tag() }} {# Inclut le jeton CSRF #}
+        <div class="row g-3">
+            <div class="col-md-6">
+                {{ form.date.label(class="form-label") }}
+                {{ form.date(class="form-control") }}
+                {% for error in form.date.errors %}
+                    <div class="text-danger">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-6">
+                {{ form.dossier.label(class="form-label") }}
+                {{ form.dossier(class="form-select") }}
+                {% for error in form.dossier.errors %}
+                    <div class="text-danger">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-4">
+                {{ form.montant_ht.label(class="form-label") }}
+                {{ form.montant_ht(class="form-control") }}
+                {% for error in form.montant_ht.errors %}
+                    <div class="text-danger">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-4">
+                {{ form.montant_ttc.label(class="form-label") }}
+                {{ form.montant_ttc(class="form-control") }}
+                {% for error in form.montant_ttc.errors %}
+                    <div class="text-danger">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-4">
+                {{ form.statut.label(class="form-label") }}
+                {{ form.statut(class="form-select") }}
+                {% for error in form.statut.errors %}
+                    <div class="text-danger">{{ error }}</div>
+                {% endfor %}
+            </div>
+            {# Si tu as une description
+            <div class="col-12">
+                {{ form.description.label(class="form-label") }}
+                {{ form.description(class="form-control", rows="3") }}
+                {% for error in form.description.errors %}
+                    <div class="text-danger">{{ error }}</div>
+                {% endfor %}
+            </div>
+            #}
+        </div>
+        <div class="mt-4">
+            {{ form.submit(class="btn btn-primary me-2") }}
+            <a href="{{ url_for('factures') }}" class="btn btn-secondary">Annuler</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
