@@ -15,3 +15,8 @@ venv/
 # Dossiers temporaires
 instance/
 .DS_Store
+
+create_admin.py
+reset_password.py
+
+migrations/
