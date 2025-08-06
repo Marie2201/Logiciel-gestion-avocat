@@ -2,9 +2,9 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h2>Modifier le dossier</h2>
+        <h2>Modifier le dossier</h2>
 
-    <form method="POST">
+        <form method="POST" action="{{ url_for('modifier_dossier', dossier_id=dossier.id) }}">
         {{ form.hidden_tag() }}
 
         <div class="mb-3">
@@ -37,8 +37,15 @@
             {{ form.description(class="form-control", rows="3") }}
         </div>
 
+        <div class="mb-3">
+            {{ form.user_id.label(class="form-label") }}
+            {{ form.user_id(class="form-select") }}
+        </div>
+
+
         <button type="submit" class="btn btn-primary">Enregistrer les modifications</button>
         <a href="{{ url_for('dossiers') }}" class="btn btn-secondary">Annuler</a>
     </form>
+
 </div>
 {% endblock %}

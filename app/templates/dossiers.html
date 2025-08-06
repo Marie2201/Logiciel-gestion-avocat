@@ -5,11 +5,15 @@
     <div class="container py-4 px-4 rounded shadow-sm" style="background-color: #e8f5e9;">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2 class="text-success"><i class="bi bi-folder2-open"></i> Gestion des Dossiers</h2>
-            <button class="btn btn-success shadow" data-bs-toggle="modal" data-bs-target="#ajoutDossierModal">
-                <i class="bi bi-plus-circle"></i> Ajouter un dossier
-            </button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-success shadow" data-bs-toggle="modal" data-bs-target="#ajoutDossierModal">
+                    <i class="bi bi-plus-circle"></i> Ajouter un dossier
+                </button>
+                <a href="{{ url_for('documents') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-paperclip"></i> Ajouter un document
+                </a>
+            </div>
         </div>
-
         <table id="dossiersTable" class="table table-bordered table-hover rounded shadow w-100 overflow-hidden" style="background-color: #ffffff;">
             <thead class="table-success text-dark">
                 <tr>
@@ -17,6 +21,7 @@
                     <th>Client</th>
                     <th>Date d'ouverture</th>
                     <th>Procédures</th>
+                    <th>Référent</th>
                     <th>Statut</th>
                     <th>Description</th>
                 </tr>
@@ -29,16 +34,28 @@
                     data-client="{{ dossier.client.societe }}"
                     data-date="{{ dossier.date_ouverture.strftime('%d/%m/%Y') }}"
                     data-procedure="{{ dossier.procedure }}"
+                    data-referent="{{ dossier.referent.nom if dossier.referent else 'Non attribué' }}"
                     data-statut="{{ dossier.statut }}"
                     data-description="{{ dossier.description }}">
+                    
                     <td>{{ dossier.nom }}</td>
                     <td>{{ dossier.client.societe }}</td>
                     <td>{{ dossier.date_ouverture.strftime('%d/%m/%Y') }}</td>
                     <td>{{ dossier.procedure }}</td>
                     <td>
-                        {% if dossier.statut == 'En cours' %}<span class="badge bg-warning text-dark">⏳ En cours</span>
-                        {% elif dossier.statut == 'Terminé' %}<span class="badge bg-success">✔️ Terminé</span>
-                        {% else %}<span class="badge bg-secondary">{{ dossier.statut }}</span>
+                        {% if dossier.referent %}
+                            {{ dossier.referent.nom }}
+                        {% else %}
+                            <span class="text-muted">Non attribué</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if dossier.statut == 'En cours' %}
+                            <span class="badge bg-warning text-dark">⏳ En cours</span>
+                        {% elif dossier.statut == 'Terminé' %}
+                            <span class="badge bg-success">✔️ Terminé</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ dossier.statut }}</span>
                         {% endif %}
                     </td>
                     <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
@@ -48,9 +65,9 @@
                 {% endfor %}
             </tbody>
         </table>
+        <!--<div id="calendar" style="height: 600px;"></div>-->
     </div>
 </div>
-
 
 <div id="context-menu" class="shadow rounded" style="display: none; position: absolute; z-index: 9999; background-color: white; border: 1px solid #ccc; padding: 5px;">
     <ul class="list-unstyled m-0">
@@ -63,98 +80,121 @@
 <div class="modal fade" id="ajoutDossierModal" tabindex="-1" aria-labelledby="ajoutDossierLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form method="POST">
+      <form method="POST" action="{{ url_for('dossiers') }}">
         {{ form.hidden_tag() }}
         <div class="modal-header bg-primary text-white">
           <h5 class="modal-title" id="ajoutDossierLabel">Ajouter un dossier</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body row g-3">
-            <div class="col-md-6">
-                {{ form.nom.label(class="form-label") }}
-                {{ form.nom(class="form-control") }}
+            <div class="col-md-6">{{ form.nom.label(class="form-label") }}{{ form.nom(class="form-control") }}</div>
+            <div class="col-md-6">{{ form.date_ouverture.label(class="form-label") }}{{ form.date_ouverture(class="form-control") }}</div>
+            <div class="col-md-6">{{ form.procedure.label(class="form-label") }}{{ form.procedure(class="form-select") }}</div>
+            <div class="col-md-6">{{ form.statut.label(class="form-label") }}{{ form.statut(class="form-select") }}</div>
+            <div class="col-md-6">{{ form.client_id.label(class="form-label") }}{{ form.client_id(class="form-select") }}</div>
+            <div class="mb-3">
+                <label for="user_id" class="form-label">Attribuer à</label>
+                {{ form.user_id(class="form-select") }}
             </div>
-            <div class="col-md-6">
-                {{ form.date_ouverture.label(class="form-label") }}
-                {{ form.date_ouverture(class="form-control") }}
-            </div>
-            <div class="col-md-6">
-                {{ form.procedure.label(class="form-label") }}
-                {{ form.procedure(class="form-select") }}
-            </div>
-            <div class="col-md-6">
-                {{ form.statut.label(class="form-label") }}
-                {{ form.statut(class="form-select") }}
-            </div>
-            <div class="col-md-6">
-                {{ form.client_id.label(class="form-label") }}
-                {{ form.client_id(class="form-select") }}
-            </div>
-            <div class="col-md-12">
-                {{ form.description.label(class="form-label") }}
-                {{ form.description(class="form-control", rows="2") }}
-            </div>
+            <div class="col-md-12">{{ form.description.label(class="form-label") }}{{ form.description(class="form-control", rows="2") }}</div>
         </div>
         <div class="modal-footer">
-          {{ form.submit(class="btn btn-primary") }}
+            {{ form.submit(class="btn btn-primary") }}
         </div>
       </form>
     </div>
   </div>
 </div>
-
+<!--<div class="modal fade" id="addEventModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form id="addEventForm" class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title">Ajouter un événement</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Titre</label>
+          <input type="text" id="eventTitle" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Début</label>
+          <input type="datetime-local" id="eventStart" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Fin</label>
+          <input type="datetime-local" id="eventEnd" class="form-control">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Description</label>
+          <input type="text" id="eventDescription" class="form-control" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+        <button type="submit" class="btn btn-primary">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>-->
 <div class="modal fade" id="detailDossierModal" tabindex="-1" aria-labelledby="detailDossierLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header bg-info text-white">
-        <h5 class="modal-title" id="detailDossierLabel">Détail du Dossier</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+        <h5 class="modal-title">Détail du Dossier</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body">
-          <div class="row">
-              <div class="col-md-6 mb-3">
-                  <div class="card h-100 shadow-sm border-light">
-                      <div class="card-body">
-                          <h6 class="card-title text-primary"><i class="bi bi-info-circle me-2"></i>Informations Principales</h6>
-                          <hr>
-                          <p class="card-text mb-1"><strong>Nature :</strong> <span id="detail-nom" class="fw-normal"></span></p>
-                          <p class="card-text mb-1"><strong>Client :</strong> <span id="detail-client" class="fw-normal"></span></p>
-                          <p class="card-text mb-1"><strong>Date d'ouverture :</strong> <span id="detail-date" class="fw-normal"></span></p>
-                          <p class="card-text mb-0"><strong>Procédures :</strong> <span id="detail-procedure" class="fw-normal"></span></p>
-                      </div>
-                  </div>
-              </div>
-              <div class="col-md-6 mb-3">
-                  <div class="card h-100 shadow-sm border-light">
-                      <div class="card-body">
-                          <h6 class="card-title text-primary"><i class="bi bi-bar-chart-line me-2"></i>Statut</h6>
-                          <hr>
-                          <p class="card-text mb-0"><strong>Statut :</strong> <span id="detail-statut" class="fw-normal"></span></p>
-                          <p class="text-muted small mb-0 mt-3">
-                            <i class="bi bi-exclamation-circle me-1"></i>Le statut indique l'avancement du dossier.
-                          </p>
-                      </div>
-                  </div>
-              </div>
-              <div class="col-12">
-                  <div class="card shadow-sm border-light">
-                      <div class="card-body">
-                          <h6 class="card-title text-primary"><i class="bi bi-text-left me-2"></i>Description Détaillée</h6>
-                          <hr>
-                          <p id="detail-description" class="card-text text-muted fst-italic"></p>
-                      </div>
-                  </div>
-              </div>
+      <div class="modal-body row g-3">
+        <div class="col-md-6">
+          <div class="card shadow-sm border-light h-100">
+            <div class="card-body">
+              <h6 class="card-title text-primary"><i class="bi bi-info-circle me-2"></i>Informations Principales</h6>
+              <hr>
+              <p><strong>Nature :</strong> <span id="detail-nom"></span></p>
+              <p><strong>Client :</strong> <span id="detail-client"></span></p>
+              <p><strong>Date d'ouverture :</strong> <span id="detail-date"></span></p>
+              <p><strong>Procédures :</strong> <span id="detail-procedure"></span></p>
+              <p><strong>Référent :</strong> <span id="detail-referent"></span></p>
+            </div>
           </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card shadow-sm border-light h-100">
+            <div class="card-body">
+              <h6 class="card-title text-primary"><i class="bi bi-bar-chart-line me-2"></i>Statut</h6>
+              <hr>
+              <p><strong>Statut :</strong> <span id="detail-statut"></span></p>
+              <p class="text-muted small mt-3"><i class="bi bi-exclamation-circle me-1"></i>Le statut indique l'avancement du dossier.</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="card shadow-sm border-light">
+            <div class="card-body">
+              <h6 class="card-title text-primary"><i class="bi bi-paperclip me-2"></i>Documents associés</h6>
+              <ul id="detail-documents" class="list-group mb-0"><li class="list-group-item text-muted">Chargement...</li></ul>
+            </div>
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="card shadow-sm border-light">
+            <div class="card-body">
+              <h6 class="card-title text-primary"><i class="bi bi-text-left me-2"></i>Description Détaillée</h6>
+              <hr>
+              <p id="detail-description" class="text-muted fst-italic"></p>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="modal-footer">
-                <a id="editDossierLink" class="btn btn-outline-primary">Modifier</a>
-                <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal">Supprimer</button>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
-            </div>
-        </div>
+        <a id="editDossierLink" class="btn btn-outline-primary">Modifier</a>
+        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal">Supprimer</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+      </div>
     </div>
+  </div>
 </div>
+
 {# Modal de confirmation de suppression (remplace confirm()) #}
 <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteLabel" aria-hidden="true">
     <div class="modal-dialog modal-sm">
@@ -168,8 +208,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                <a id="editLink" class="btn btn-outline-primary"><i class="bi bi-pencil-square me-1"></i> Modifier</a>
-                <form id="deleteTimesheetForm" method="POST" style="display:inline;">
+                <form id="deleteDossierForm" method="POST" style="display:inline;">
                     {{ delete_form.hidden_tag() }}
                     <button type="submit" class="btn btn-danger">Supprimer</button>
                 </form>
@@ -180,139 +219,196 @@
 {% endblock %}
 
 {% block scripts %}
+<!--<link href="https://cdn.jsdelivr.net/npm/fullcalendar@3.2.0/dist/fullcalendar.min.css" rel="stylesheet" />
+
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@3.2.0/dist/fullcalendar.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@3.2.0/dist/locale/fr.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.min.js"></script>
+-->
 <script>
+let currentDossierId = null;
+
 $(document).ready(function () {
+    const csrfToken = $('meta[name="csrf-token"]').attr('content');
     const table = $('#dossiersTable').DataTable({
         autoWidth: false,
         responsive: true,
-        dom: 'frtip', // 'B' active les boutons d'exportation
-        buttons: [
-            {
-                extend: 'excelHtml5',
-                text: '<i class="bi bi-file-earmark-excel"></i> Exporter Excel',
-                filename: 'dossiers_excel',
-                exportOptions: {
-                    columns: [0, 1, 2, 3, 4, 5]
-                }
-            },
-            {
-                extend: 'pdfHtml5',
-                text: '<i class="bi bi-file-pdf"></i> Exporter PDF',
-                filename: 'dossiers_pdf',
-                orientation: 'landscape',
-                pageSize: 'A4',
-                exportOptions: {
-                    columns: [0, 1, 2, 3, 4, 5]
-                }
-            },
-            {
-                extend: 'print',
-                text: '<i class="bi bi-printer"></i> Imprimer',
-                exportOptions: {
-                    columns: [0, 1, 2, 3, 4, 5]
-                }
-            }
-        ],
+        dom: 'frtip',
         language: {
             search: "🔍 Rechercher :",
-            lengthMenu: "",
-            info: "",
-            infoEmpty: "",
-            paginate: {
-                previous: "Précédent",
-                next: "Suivant"
-            },
-            zeroRecords: "Aucun dossier trouvé"
+            zeroRecords: "Aucun dossier trouvé",
+            paginate: { previous: "Précédent", next: "Suivant" }
         }
+    })
+
+
+    // Détails du dossier au double-clic
+    $('.dossier-row').on('dblclick', function () {
+        const row = this.dataset;
+        currentDossierId = row.id;
+        $('#detail-nom').text(row.nom);
+        $('#detail-client').text(row.client);
+        $('#detail-date').text(row.date);
+        $('#detail-procedure').text(row.procedure);
+        $('#detail-referent').text(row.referent);
+        $('#detail-description').text(row.description);
+        $('#editDossierLink').attr('href', '/dossiers/modifier/' + row.id);
+        $('#deleteDossierForm').attr('action', '/dossiers/supprimer/' + row.id);
+        const badge = row.statut === 'En cours'
+            ? `<span class="badge bg-warning text-dark">⏳ En cours</span>`
+            : row.statut === 'Terminé'
+            ? `<span class="badge bg-success">✔️ Terminé</span>`
+            : `<span class="badge bg-secondary">${row.statut}</span>`;
+        $('#detail-statut').html(badge);
+        new bootstrap.Modal(document.getElementById('detailDossierModal')).show();
     });
 
-
-    $('.dossier-row').on('dblclick', function() {
-        $('#detail-nom').text($(this).data('nom'));
-        $('#detail-client').text($(this).data('client'));
-        $('#detail-date').text($(this).data('date'));
-        $('#detail-procedure').text($(this).data('procedure'));
-
-        // générer une facture
-        $('.dossier-row').on('dblclick', function() {
-        const dossierId = $(this).data('id'); // Récupérer l'ID du dossier
-
-        $('#detail-nom').text($(this).data('nom'));
-        $('#detail-client').text($(this).data('client'));
-        $('#detail-date').text($(this).data('date'));
-        $('#detail-procedure').text($(this).data('procedure'));
-        
-        // Gérer le statut avec le badge
-        const statutDossierText = $(this).data('statut');
-        let statutDossierBadgeHtml = `<span class="badge bg-secondary">${statutDossierText}</span>`; // Default
-        if (statutDossierText === 'En cours') { // Assure-toi que la chaîne correspond à tes données
-            statutDossierBadgeHtml = `<span class="badge bg-warning text-dark">${statutDossierText}</span>`;
-        } else if (statutDossierText === 'Terminé') { // Assure-toi que la chaîne correspond à tes données
-            statutDossierBadgeHtml = `<span class="badge bg-success">${statutDossierText}</span>`;
-        }
-        $('#detail-statut').html(statutDossierBadgeHtml); // Utilise .html() pour insérer le HTML du badge
-
-        $('#detail-description').text($(this).data('description'));
-        $('#editLink').attr('href', '/dossiers/modifier/' + dossierId); // Utilise dossierId
-        $('#deleteForm').attr('action', '/dossiers/supprimer/' + dossierId); // Utilise dossierId
-
-        // Mettre à jour l'action du formulaire de génération de facture
-        $('#genererFactureForm').attr('action', '/dossiers/' + dossierId + '/generer_facture');
-
-        $('#detailDossierModal').modal('show');
-    });
-        
-        // Gérer le statut avec le badge
-        const statutDossierText = $(this).data('statut');
-        let statutDossierBadgeHtml = `<span class="badge bg-secondary">${statutDossierText}</span>`; // Default
-        if (statutDossierText === 'En cours') {
-            statutDossierBadgeHtml = `<span class="badge bg-warning text-dark">${statutDossierText}</span>`;
-        } else if (statutDossierText === 'Terminé') {
-            statutDossierBadgeHtml = `<span class="badge bg-success">${statutDossierText}</span>`;
-        }
-        $('#detail-statut').html(statutDossierBadgeHtml); // Utilise .html() pour insérer le HTML du badge
-
-        $('#detail-description').text($(this).data('description'));
-        $('#editLink').attr('href', '/dossiers/modifier/' + $(this).data('id'));
-        $('#deleteForm').attr('action', '/dossiers/supprimer/' + $(this).data('id'));
-        $('#detailDossierModal').modal('show');
-    });
-
-    // Gestion du clic droit pour afficher le menu contextuel
+    // Menu contextuel
     $('#dossiersTable tbody').on('contextmenu', 'tr', function (e) {
         e.preventDefault();
         $('#context-menu').css({ top: e.pageY + 'px', left: e.pageX + 'px' }).show();
     });
+    $(document).on('click', () => $('#context-menu').hide());
+    $('#exportExcel').on('click', () => table.button('.buttons-excel').trigger());
+    $('#exportPDF').on('click', () => table.button('.buttons-pdf').trigger());
+    $('#printTable').on('click', () => table.button('.buttons-print').trigger());
 
-    // Cacher le menu contextuel lors d'un clic ailleurs
-    $(document).on('click', function () {
-        $('#context-menu').hide();
+    
+    // --- FullCalendar partagé 
+    /*$('#calendar').fullCalendar({
+    locale:         'fr',
+    firstDay:       1,
+    header: {
+        left:   'prev,next today',
+        center: 'title',
+        right:  'month,agendaWeek,agendaDay'
+    },
+    defaultView: 'agendaWeek',
+    selectable:     true,
+    selectHelper:   true,
+    editable:       true,
+    eventLimit:     true,
+    views: {
+        month: {eventLimit: 4},
+        agendaWeek: {eventLimit: false},
+        agendaDay: {eventLimit: false}
+    },
+    timezone: 'local',
+    timeFormat:     'H:mm',
+    slotLabelFormat: 'H:mm',
+    slotDuration:   '00:30:00',
+    minTime:        '08:00:00',
+    maxTime:        '19:00:00',
+    allDaySlot:     true,
+    scrollTime:     '00:00:00',
+
+    // ← on remplace eventSources par events:function()
+    events: function(start, end, timezone, callback) {
+        // Charge dossiers ET réunions
+        $.when(
+        $.getJSON('/api/events'),        // dossiers
+        $.getJSON('/api/calendar/events')    // réunions
+        ).done(function(dossiersResp, calResp){
+        const dossiers = dossiersResp[0];
+        const reunions = calResp[0];
+
+        console.log('📥 /api/events →', dossiers);
+        console.log('📥 /api/calendar/events →', reunions);
+
+        const all = dossiers.concat(reunions);
+        console.log('✅ Tous les events →', all);
+
+        callback(all);
+        }).fail(function(err){
+        console.error('Erreur chargement événements', err);
+        });
+    },
+
+    // selection pour créer un RDV
+    select: function(start, end) {
+        $('#eventTitle').val('');
+        $('#eventStart').val(start.format('YYYY-MM-DDTHH:mm'));
+        $('#eventEnd').val(end.format('YYYY-MM-DDTHH:mm'));
+        $('#eventDescription').val('');
+        $('#addEventModal').modal('show');
+    },
+
+
+    eventRender: function(event, element) {
+        // Ajoute un attribut "title" pour le tooltip
+        if (event.description) {
+            element.attr('title', event.description);
+        }
+        // Initialise le tooltip une fois que l'élément a été rendu
+        element.tooltip({
+            container: 'body',
+            trigger: 'hover',
+            placement: 'top'
+        });
+    },
+    
+    // clic pour supprimer une réunion (événements dossiers ont id en "d123")
+    eventClick: function(ev) {
+        if (typeof ev.id === 'string' && ev.id.startsWith('d')) {
+        return; // dossier → on ne fait rien
+        }
+        if (confirm('Supprimer cet événement ?')) {
+        $.ajax({
+            url:    '/api/calendar/events/' + ev.id,
+            method: 'DELETE',
+            success: function() {
+            $('#calendar').fullCalendar('refetchEvents');
+            },
+            error: function(xhr) {
+            alert('Impossible de supprimer : ' + xhr.statusText);
+            }
+        });
+        }
+    }
     });
 
-    // Déclenchement des actions d'export/impression via les boutons DataTables
-    $('#exportExcel').on('click', function (e) {
+    // --- Gestion du formulaire d’ajout d’événement ---
+    // (déconnecte puis reconnecte ton handler pour être sûr qu’il n’y ait qu’un seul binding)
+    $('#addEventForm').off('submit').on('submit', function(e){
         e.preventDefault();
-        table.button('.buttons-excel').trigger();
-    });
+        const payload = {
+            title: $('#eventTitle').val(),
+            start: $('#eventStart').val(),
+            end:   $('#eventEnd').val(),
+            description : $('#eventDescription').val()
+        };
+        $.ajax({
+            url:          '/api/calendar/events',
+            method:       'POST',
+            contentType: 'application/json',
+            headers: {
+            'X-CSRFToken': csrfToken     // <— ici
+        },
+            data:         JSON.stringify(payload),
+            success: function() {
+            $('#addEventModal').modal('hide');
+            $('#calendar').fullCalendar('refetchEvents');
+            },
+            error: function(xhr) {
+            alert('Erreur à l’enregistrement : ' + xhr.responseText);
+            }
+        });
+    }); */
 
-    $('#exportPDF').on('click', function (e) {
-        e.preventDefault();
-        table.button('.buttons-pdf').trigger();
-    });
 
-    $('#printTable').on('click', function (e) {
-        e.preventDefault();
-        table.button('.buttons-print').trigger();
-    });
-    // Supprimer tous les messages flash avec un effet de fondu après 5 secondes
+    // Supprimer les alertes flash automatiquement
     setTimeout(() => {
-        const alerts = document.querySelectorAll('#flash-messages .alert');
-        alerts.forEach(el => {
+        document.querySelectorAll('#flash-messages .alert').forEach(el => {
             el.classList.remove('show');
             el.classList.add('fade');
             setTimeout(() => el.remove(), 500);
         });
     }, 5000);
+
 });
 </script>
 {% endblock %}

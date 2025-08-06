@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}HoudaConnect{% endblock %}</title>
 
     {# TOUS LES LIENS CSS VONT ICI DANS LE HEAD #}
@@ -162,6 +163,26 @@
                 opacity: 1;
             }
         }
+        .dropdown-menu-dark {
+            background-color: #212529;
+        }
+        .dropdown-menu-dark .dropdown-item {
+            color: white;
+        }
+        .dropdown-menu-dark .dropdown-item:hover {
+            background-color: #343a40;
+        }
+        
+        .username-text {
+            max-width: 130px;
+            display: inline-block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+
+
     </style>
 </head>
 <body>
@@ -188,11 +209,21 @@
                         <a class="nav-link" href="/factures"><i class="bi bi-receipt-cutoff me-2"></i>Factures</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link text-danger" href="{{ url_for('logout') }}">
-                            <i class="bi bi-box-arrow-right"></i> Déconnexion
-                        </a>
+                        <a class="nav-link" href="/utilisateurs"><i class="bi bi-person-lines-fill me-2"></i>Utilisateurs</a>
                     </li>
-
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item mt-5">
+                        <div class="dropdown">
+                            <a class="nav-link dropdown-toggle text-white" href="#" role="button" id="profilMenu" data-bs-toggle="dropdown" aria-expanded="false" title="{{ current_user.nom }}">
+                                <i class="bi bi-person-circle me-2"></i><span class="username-text">{{ current_user.nom }}</span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="profilMenu">
+                                <li><a class="dropdown-item" href="{{ url_for('changer_mdp') }}">🔐 Modifier le mot de passe</a></li>
+                                <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}">🚪 Déconnexion</a></li>
+                            </ul>
+                        </div>
+                    </li>
+                    {% endif %}
                 </ul>
             </nav>
 
@@ -245,6 +276,16 @@
         {{ moment.locale('fr') }}
         {# Les scripts spécifiques à dashboard.html (Chart.js code) iront ici quand dashboard.html étend ce bloc #}
     {% endblock %}
+    <script>
+    // Attendre 5 secondes (5000 ms), puis faire disparaître le flash message
+    setTimeout(function() {
+        const flashMessages = document.querySelectorAll('.alert');
+        flashMessages.forEach(function(msg) {
+            let fade = new bootstrap.Alert(msg);
+            fade.close();  // déclenche la fermeture (équivaut à cliquer sur la croix)
+        });
+    }, 5000);
+    </script>
 
 </body>
 </html>

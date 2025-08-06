@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <h3 class="mb-4">📄 Gestion des documents</h3>
+    <form method="POST" enctype="multipart/form-data">
+        {{ form.hidden_tag() }}
+        <a href="{{ url_for('dossiers') }}" class="btn btn-outline-secondary mb-3">
+            <i class="bi bi-arrow-left"></i> Retour aux dossiers
+        </a>
+        <div class="mb-3">
+            {{ form.dossier_id.label }} {{ form.dossier_id(class="form-select") }}
+        </div>
+        <div class="mb-3">
+            {{ form.fichier.label }} {{ form.fichier(class="form-control") }}
+        </div>
+        <div>
+            {{ form.submit(class="btn btn-primary") }}
+        </div>
+        
+    </form>
+
+   <hr>
+   <h4 class="mt-4">📁 Documents enregistrés</h4>
+   <ul class="list-group">
+        {% for doc in documents %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+                {{ doc.nom_fichier }} <br>
+                <small class="text-muted">Dossier : {{ doc.dossier.nom }}</small>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('ouvrir_document', document_id=doc.id) }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-eye"></i> Consulter
+                </a>
+
+                <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal"
+                        data-doc-id="{{ doc.id }}">
+                    <i class="bi bi-trash"></i> Supprimer
+                </button>
+            </div>
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted">Aucun document enregistré.</li>
+        {% endfor %}
+    </ul>
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteLabel" aria-hidden="true">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="confirmDeleteLabel">Confirmer la suppression</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+      </div>
+      <div class="modal-body">
+        Êtes-vous sûr de vouloir supprimer ce document ? Cette action est irréversible.
+      </div>
+      <div class="modal-footer">
+        <form id="deleteDocumentForm" method="POST">
+          {{ delete_form.hidden_tag() }}
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+          <button type="submit" class="btn btn-danger">Supprimer</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const deleteModal = document.getElementById('confirmDeleteModal');
+    deleteModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        const docId = button.getAttribute('data-doc-id');
+        const form = document.getElementById('deleteDocumentForm');
+        form.action = `/documents/supprimer/${docId}`;
+    });
+});
+</script>
+{% endblock %}
+

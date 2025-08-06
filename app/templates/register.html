@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow p-4" style="max-width: 500px; margin: auto;">
+        <h2 class="text-center mb-4">Créer un compte utilisateur</h2>
+        <form method="POST">
+            {{ form.hidden_tag() }}
+
+            <div class="mb-3">{{ form.nom.label }} {{ form.nom(class="form-control") }}</div>
+            <div class="mb-3">{{ form.email.label }} {{ form.email(class="form-control") }}</div>
+            <div class="mb-3">{{ form.password.label }} {{ form.password(class="form-control") }}</div>
+            <div class="mb-3">{{ form.confirm_password.label }} {{ form.confirm_password(class="form-control") }}</div>
+            <div class="mb-3">{{ form.role.label }} {{ form.role(class="form-select") }}</div>
+
+            <div class="text-center mt-4">
+                {{ form.submit(class="btn btn-primary") }}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

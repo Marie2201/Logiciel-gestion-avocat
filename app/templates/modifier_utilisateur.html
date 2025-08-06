@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}Modifier Utilisateur{% endblock %}
+
+{% block content %}
+<div class="container d-flex justify-content-center align-items-center min-vh-100">
+    <div class="card shadow p-4 bg-light" style="max-width: 500px; width: 100%;">
+        <div class="card-body">
+            <h2 class="card-title text-center text-primary mb-4">Modifier l'utilisateur</h2>
+            
+            <form method="POST">
+                {{ form.hidden_tag() }}
+
+                <div class="form-group mb-3">
+                    {{ form.nom.label(class="form-label") }}
+                    {{ form.nom(class="form-control") }}
+                </div>
+
+                <div class="form-group mb-3">
+                    {{ form.email.label(class="form-label") }}
+                    {{ form.email(class="form-control") }}
+                </div>
+
+                <div class="form-group mb-3">
+                    {{ form.role.label(class="form-label") }}
+                    {{ form.role(class="form-select") }}
+                </div>
+
+                <div class="text-center">
+                    <button type="submit" class="btn btn-success">Enregistrer</button>
+                    <a href="{{ url_for('utilisateurs') }}" class="btn btn-secondary ms-2">Annuler</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

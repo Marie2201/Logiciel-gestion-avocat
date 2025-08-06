@@ -5,7 +5,9 @@
     <h2 class="mb-4">Ajouter un utilisateur 👤</h2>
     <form method="POST">
         {{ form.hidden_tag() }}
-
+        <a href="{{ url_for('utilisateurs') }}" class="btn btn-outline-secondary mb-3">
+            <i class="bi bi-arrow-left"></i> Retour
+        </a>
         <div class="mb-3">
             {{ form.nom.label(class="form-label") }}
             {{ form.nom(class="form-control") }}

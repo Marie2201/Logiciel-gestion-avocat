@@ -1,0 +1,10 @@
+<h3>Modifier le référent pour : {{ dossier.nom }}</h3>
+<form method="POST">
+    {{ form.hidden_tag() }}
+    <div class="mb-3">
+        {{ form.referent_id.label }}
+        {{ form.referent_id(class="form-select") }}
+    </div>
+    <button class="btn btn-primary" type="submit">Modifier</button>
+    <a href="{{ url_for('dossiers') }}" class="btn btn-secondary">Annuler</a>
+</form>

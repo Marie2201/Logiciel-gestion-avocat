@@ -1,0 +1,10 @@
+<form method="POST">
+    {{ form.hidden_tag() }}
+    <div class="mb-3">
+        {{ form.dossier_id.label }} {{ form.dossier_id(class="form-select") }}
+    </div>
+    <div class="mb-3">
+        {{ form.user_id.label }} {{ form.user_id(class="form-select") }}
+    </div>
+    <button type="submit" class="btn btn-primary">{{ form.submit.label }}</button>
+</form>

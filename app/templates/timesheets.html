@@ -26,9 +26,9 @@
                 <th>Client</th>
                 <th>Dossier</th>
                 <th>Utilisateur</th>
-                <th>Taux horaire (€)</th>
-                <th>Montant HT (€)</th>
-                <th>Montant TTC (€)</th>
+                <th>Taux horaire (FCFA)</th>
+                <th>Montant HT (FCFA)</th>
+                <th>Montant TTC (FCFA)</th>
                 <th>Statut</th>
             </tr>
         </thead>
@@ -56,9 +56,9 @@
                 <td>{{ ts.dossier.client.societe }}</td>
                 <td>{{ ts.dossier.nom }}</td>
                 <td>{{ ts.user.nom if ts.user else '—' }}</td>
-                <td>{{ "{:,.2f}".format(ts.taux_horaire) }} €</td>
-                <td>{{ "{:,.2f}".format(ts.montant_ht) }} €</td>
-                <td>{{ "{:,.2f}".format(ts.montant_ttc) }} €</td>
+                <td>{{ "{:,.2f}".format(ts.taux_horaire) }} XOF</td>
+                <td>{{ "{:,.2f}".format(ts.montant_ht) }} XOF</td>
+                <td>{{ "{:,.2f}".format(ts.montant_ttc) }} XOF</td>
                 <td>
                     <span class="badge {% if ts.statut.lower().strip() == 'facturé' %}bg-success{% elif ts.statut.lower().strip() == 'en cours' %}bg-warning{% elif ts.statut.lower().strip() == 'brouillon' %}bg-info{% else %}bg-secondary{% endif %}">
                         {{ ts.statut }}
@@ -85,22 +85,22 @@
                     <div class="col-md-4"><label class="form-label" for="heure_debut">Heure début</label>{{ form.heure_debut(class="form-control", id="heure_debut") }}</div>
                     <div class="col-md-4"><label class="form-label" for="heure_fin">Heure fin</label>{{ form.heure_fin(class="form-control", id="heure_fin") }}</div>
                     <div class="col-md-12">{{ form.description.label(class="form-label") }}{{ form.description(class="form-control", rows=2) }}</div>
-                    <div class="col-md-6"><label class="form-label" for="taux_horaire">Taux horaire (€)</label>{{ form.taux_horaire(class="form-control", id="taux_horaire") }}</div>
-                    <div class="col-md-6"> {# Ajout d'une div pour le layout #}
+                    
+                    <div class="col-md-6">
+                        <label class="form-label" for="taux_horaire">Taux horaire (FCFA)</label>
+                        {{ form.taux_horaire(class="form-control", id="tauxHoraireInput") }}
+                    </div>
+
+                    <div class="col-md-6"><!-- Ajout d'une div pour le layout --> 
                         {{ form.dossier_id.label(class="form-label") }} {# Ajout du label pour le champ dossier_id #}
-                        <select class="form-select" id="dossier_id" name="dossier_id">
-                            {% for dossier in form.dossier_id.choices %}
-                                <option value="{{ dossier[0] }}">{{ dossier[1] }}</option>
-                            {% endfor %}
-                        </select>
+                        
+                        {{ form.dossier_id(class="form-select") }}
+
                     </div>
 
                     <div class="col-md-6">
-                        <label for="tva_applicable" class="form-label">TVA applicable ?</label>
-                        <select id="tva_applicable" name="tva_applicable" class="form-select">
-                            <option value="oui">Oui</option>
-                            <option value="non">Non</option>
-                        </select>
+                        {{ form.tva_applicable.label(class="form-label") }}
+                        {{ form.tva_applicable(class="form-select", id="tva_applicable") }}
                     </div>
                     <div class="col-md-6">{{ form.statut.label(class="form-label") }}{{ form.statut(class="form-select") }}</div>
 
@@ -118,6 +118,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">{{ form.submit(class="btn btn-success") }}</div>
+                
             </form>
         </div>
     </div>
@@ -150,11 +151,13 @@
                     <div class="col-md-6 mb-3">
                         <div class="card h-100 shadow-sm border-light">
                             <div class="card-body">
-                                <h6 class="card-title text-primary"><i class="bi bi-currency-euro me-2"></i>Détails financiers</h6>
+                                <h6 class="card-title text-primary"><i class="bi bi-currency-fcfa me-2"></i>Détails financiers</h6>
                                 <hr>
                                 <p class="card-text mb-1"><strong>Taux horaire :</strong> <span id="detail-taux" class="fw-normal text-info"></span></p>
                                 <p class="card-text mb-1"><strong>Montant HT :</strong> <span id="detail-ht" class="fw-normal text-success fw-bold"></span></p>
+                
                                 <p class="card-text mb-1"><strong>Montant TTC :</strong> <span id="detail-ttc" class="fw-normal text-success fw-bold"></span></p>
+                                
                                 <p class="card-text mb-0"><strong>Statut :</strong> <span id="detail-statut" class="fw-normal badge bg-secondary"></span></p>
                             </div>
                         </div>
@@ -195,7 +198,6 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                <a id="editLink" class="btn btn-outline-primary"><i class="bi bi-pencil-square me-1"></i> Modifier</a>
                 <form id="deleteTimesheetForm" method="POST" style="display:inline;">
                     {{ delete_form.hidden_tag() }}
                     <button type="submit" class="btn btn-danger">Supprimer</button>
@@ -227,8 +229,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.2.2/js/buttons.html5.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.2.2/js/buttons.print.min.js"></script>
+
 <script>
-// Fonction pour afficher les détails du timesheet dans le modal
 function showTimesheetDetail(rowElement) {
     const timesheetId = rowElement.dataset.id;
 
@@ -237,85 +239,67 @@ function showTimesheetDetail(rowElement) {
     document.getElementById('detail-date').innerText = rowElement.dataset.date;
     document.getElementById('detail-debut').innerText = rowElement.dataset.heure_debut;
     document.getElementById('detail-fin').innerText = rowElement.dataset.heure_fin;
-    document.getElementById('detail-duree').innerText = rowElement.dataset.duree_heures + ' h'; // Ajout du 'h'
-    document.getElementById('detail-taux').innerText = rowElement.dataset.taux_horaire + ' €'; // Ajout du '€'
-    document.getElementById('detail-ht').innerText = rowElement.dataset.montant_ht + ' €'; // Ajout du '€'
-    document.getElementById('detail-ttc').innerText = rowElement.dataset.montant_ttc + ' €'; // Ajout du '€'
+    document.getElementById('detail-duree').innerText = rowElement.dataset.duree_heures + ' h';
+    document.getElementById('detail-taux').innerText = rowElement.dataset.taux_horaire + ' XOF';
+    document.getElementById('detail-ht').innerText = rowElement.dataset.montant_ht + ' XOF';
+    document.getElementById('detail-ttc').innerText = rowElement.dataset.montant_ttc + ' XOF';
     document.getElementById('detail-statut').innerText = rowElement.dataset.statut;
     document.getElementById('detail-description').innerText = rowElement.dataset.description;
 
-    // Mise à jour des liens Modifier et Supprimer
     document.getElementById('editTimesheetLink').href = "/edit_timesheet/" + timesheetId;
+    document.getElementById('deleteTimesheetForm').action = '/timesheet/delete/' + timesheetId;
 
-    document.getElementById('deleteTimesheetForm').action = '/timesheets/supprimer/' + timesheetId;
-
-    // Afficher le modal de détail
     var detailModal = new bootstrap.Modal(document.getElementById('detailTimesheetModal'));
     detailModal.show();
 }
 
-
-$(document).ready(function () {
+document.addEventListener('DOMContentLoaded', function () {
     const table = $('#timesheetsTable').DataTable({
         autoWidth: false,
         responsive: true,
-        dom: 'frtip', // 'B' active les boutons d'exportation.
+        dom: 'frtip',
         buttons: [
             {
                 extend: 'excelHtml5',
                 text: '<i class="bi bi-file-earmark-excel"></i> Exporter Excel',
                 filename: 'timesheets_excel',
-                exportOptions: {
-                    columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] // Toutes les colonnes visibles
-                }
+                exportOptions: { columns: ':visible' }
             },
             {
                 extend: 'pdfHtml5',
                 text: '<i class="bi bi-file-pdf"></i> Exporter PDF',
-                filename: 'timesheets_pdf',
                 orientation: 'landscape',
                 pageSize: 'A4',
-                exportOptions: {
-                    columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] // Toutes les colonnes visibles
-                }
+                filename: 'timesheets_pdf',
+                exportOptions: { columns: ':visible' }
             },
             {
                 extend: 'print',
                 text: '<i class="bi bi-printer"></i> Imprimer',
-                exportOptions: {
-                    columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] // Toutes les colonnes visibles
-                }
+                exportOptions: { columns: ':visible' }
             }
         ],
         language: {
             search: "🔍 Rechercher :",
-            lengthMenu: "Afficher _MENU_ entrées", // Ajout de l'option de menu
-            info: "Affichage de _START_ à _END_ sur _TOTAL_ entrées", // Ajout d'informations
+            lengthMenu: "Afficher _MENU_ entrées",
+            info: "Affichage de _START_ à _END_ sur _TOTAL_ entrées",
             infoEmpty: "Affichage de 0 à 0 sur 0 entrée",
             infoFiltered: "(filtré de _MAX_ entrées totales)",
-            paginate: {
-                previous: "Précédent",
-                next: "Suivant"
-            },
+            paginate: { previous: "Précédent", next: "Suivant" },
             zeroRecords: "Aucun timesheet trouvé"
         }
     });
 
-    // Gestion du clic droit pour afficher le menu contextuel
+    // Menu clic droit
     $('#timesheetsTable tbody').on('contextmenu', 'tr', function (e) {
         e.preventDefault();
         $('#context-menu').css({ top: e.pageY + 'px', left: e.pageX + 'px' }).show();
     });
 
-    // Cacher le menu contextuel lors d'un clic ailleurs
     $(document).on('click', function () {
         $('#context-menu').hide();
     });
 
-    // Déclenchement des actions d'export/impression via les boutons DataTables
-    // Ces gestionnaires de clic sont maintenant redondants si 'B' est dans dom,
-    // mais je les garde au cas où vous auriez besoin de déclencher les boutons
-    // de manière personnalisée.
     $('#exportExcel').on('click', function (e) {
         e.preventDefault();
         table.button('.buttons-excel').trigger();
@@ -331,42 +315,41 @@ $(document).ready(function () {
         table.button('.buttons-print').trigger();
     });
 
-    // Calcul automatique durée et montants pour le modal d'ajout
-    function calculerDureeEtMontants() {
-        const debut = document.getElementById('heure_debut').value;
-        const fin = document.getElementById('heure_fin').value;
-        const taux = parseFloat(document.getElementById('taux_horaire').value.replace(',', '.')) || 0;
-        const tvaApplicable = document.getElementById('tva_applicable').value;
-        const tvaRate = 0.20; // Taux de TVA par défaut (20%)
 
-        if (debut && fin && taux >= 0) { // Vérifier que le taux est non négatif
+
+    // Calcul automatique durée et montants
+    // Calcul automatique durée et montants
+    function calculerDureeEtMontants() {
+        const debut = document.getElementById('heure_debut')?.value;
+        const fin = document.getElementById('heure_fin')?.value;
+        const taux = parseFloat(document.getElementById('tauxHoraireInput')?.value.replace(',', '.')) || 0;
+
+        const tvaElement = document.getElementById('tva_applicable');
+        const tvaApplicable = tvaElement?.options[tvaElement.selectedIndex]?.value;
+        const tvaRate = 0.18;
+
+        if (debut && fin && taux >= 0) {
             const [h1, m1] = debut.split(':').map(Number);
             const [h2, m2] = fin.split(':').map(Number);
 
-            // Convertir les heures en minutes depuis minuit
-            const totalMinutesDebut = h1 * 60 + m1;
-            const totalMinutesFin = h2 * 60 + m2;
-
-            let dureeMinutes = totalMinutesFin - totalMinutesDebut;
-
-            // Gérer le cas où l'heure de fin est le jour suivant (ex: 23:00 - 01:00)
-            if (dureeMinutes < 0) {
-                dureeMinutes += 24 * 60; // Ajouter 24 heures en minutes
-            }
+            let dureeMinutes = (h2 * 60 + m2) - (h1 * 60 + m1);
+            if (dureeMinutes < 0) dureeMinutes += 24 * 60;
 
             const dureeHeures = dureeMinutes / 60;
-            const dureeAffichee = Math.round(dureeHeures * 100) / 100; // Arrondi à deux décimales
+            const dureeAffichee = Math.round(dureeHeures * 100) / 100;
 
             const montantHT = Math.round(dureeHeures * taux * 100) / 100;
             let montantTTC = montantHT;
 
-            if (tvaApplicable === 'oui') {
+            if (tvaApplicable === 'oui' || tvaApplicable === '1' || tvaApplicable === 'True' || tvaApplicable === 1 || tvaApplicable === true) {
+
                 montantTTC = Math.round(montantHT * (1 + tvaRate) * 100) / 100;
             }
 
             document.getElementById('duree_affichee').innerText = dureeAffichee.toFixed(2) + " h";
-            document.getElementById('montant_ht').innerText = montantHT.toFixed(2) + " €";
-            document.getElementById('montant_ttc').innerText = montantTTC.toFixed(2) + " €";
+            document.getElementById('montant_ht').innerText = montantHT.toFixed(2) + " FCFA";
+            document.getElementById('montant_ttc').innerText = montantTTC.toFixed(2) + " FCFA";
+
         } else {
             document.getElementById('duree_affichee').innerText = "-";
             document.getElementById('montant_ht').innerText = "-";
@@ -374,19 +357,24 @@ $(document).ready(function () {
         }
     }
 
-    // Attacher les écouteurs d'événements pour le calcul automatique
-    ['heure_debut', 'heure_fin', 'taux_horaire', 'tva_applicable'].forEach(id => {
+    // Appliquer les bons événements selon le champ
+    function ajouterEventCalculAuto(id, event = 'input') {
         const el = document.getElementById(id);
-        if (el) el.addEventListener('input', calculerDureeEtMontants);
-    });
+        if (el) el.addEventListener(event, calculerDureeEtMontants);
+    }
 
-    // Appeler le calcul au chargement du modal si des valeurs sont déjà présentes (ex: en cas d'édition)
+    ajouterEventCalculAuto('heure_debut');
+    ajouterEventCalculAuto('heure_fin');
+    ajouterEventCalculAuto('tauxHoraireInput');
+    ajouterEventCalculAuto('tva_applicable', 'change');
+
+    // Recalcul à l’ouverture du modal
     $('#ajoutTimesheetModal').on('shown.bs.modal', function () {
         calculerDureeEtMontants();
     });
 
 
-    // Auto-disparition flashs
+    // Disparition automatique des messages flash
     setTimeout(() => {
         const alerts = document.querySelectorAll('#flash-messages .alert');
         alerts.forEach(el => {

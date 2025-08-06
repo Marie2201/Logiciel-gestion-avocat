@@ -29,14 +29,15 @@
                 <tr class="facture-row"
                     data-id="{{ facture.id }}"
                     data-date="{{ facture.date.strftime('%d/%m/%Y') }}"
-                    data-montant-ht="{{ '{:,.2f} €'.format(facture.montant_ht) }}"
-                    data-montant-ttc="{{ '{:,.2f} €'.format(facture.montant_ttc) }}"
+                    data-montant-ht="{{ '{:,.2f} FCFA'.format(facture.montant_ht) }}"
+                    data-montant-ttc="{{ '{:,.2f} FCFA'.format(facture.montant_ttc) }}"
                     data-statut="{{ facture.statut }}"
-                    data-dossier-titre="{{ facture.dossier.titre if facture.dossier else '—' }}">
+                    data-dossier="{{ facture.dossier_nom }}"
+                    data-client="{{ facture.client_nom }}">
                     
                     <td>{{ facture.date.strftime('%d/%m/%Y') }}</td>
-                    <td>{{ '{:,.2f} €'.format(facture.montant_ht) }}</td>
-                    <td>{{ '{:,.2f} €'.format(facture.montant_ttc) }}</td>
+                    <td>{{ '{:,.2f} XOF'.format(facture.montant_ht) }}</td>
+                    <td>{{ '{:,.2f} XOF'.format(facture.montant_ttc) }}</td>
                     <td>
                         {% if facture.statut == 'En attente' %}
                             <span class="badge bg-warning text-dark">⏳ En attente</span>
@@ -48,8 +49,9 @@
                             <span class="badge bg-secondary">{{ facture.statut }}</span>
                         {% endif %}
                     </td>
-                    <td>{{ facture.dossier.client.societe }}</td>
-                    <td>{{ facture.dossier.nom }}</td>
+                    <td>{{ facture.client_nom }}</td>
+                    <td>{{ facture.dossier_nom }}</td>
+                    
                 </tr>
                 {% endfor %}
             </tbody>
@@ -117,6 +119,7 @@
                         <hr>
                         <p class="card-text mb-1"><strong>Date :</strong> <span id="detail-facture-date" class="fw-normal"></span></p>
                         <p class="card-text mb-0"><strong>Dossier :</strong> <span id="detail-facture-dossier-titre" class="fw-normal"></span></p>
+                        <p><strong>Client :</strong> <span id="detail-facture-client"></span></p>
                     </div>
                 </div>
             </div>
@@ -164,6 +167,7 @@
         </div>
     </div>
 </div>
+
 {# Modal de confirmation de suppression (remplace confirm()) #}
 <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteLabel" aria-hidden="true">
     <div class="modal-dialog modal-sm">
@@ -173,11 +177,10 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
             </div>
             <div class="modal-body">
-                Êtes-vous sûr de vouloir supprimer cette facture ? Cette action est irréversible.
+                Êtes-vous sûr de vouloir supprimer ce facture ? Cette action est irréversible.
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                <a id="editLink" class="btn btn-outline-primary"><i class="bi bi-pencil-square me-1"></i> Modifier</a>
                 <form id="deleteFactureForm" method="POST" style="display:inline;">
                     {{ delete_form.hidden_tag() }}
                     <button type="submit" class="btn btn-danger">Supprimer</button>
@@ -186,6 +189,7 @@
         </div>
     </div>
 </div>
+
 <div id="contextMenu" class="dropdown-menu shadow rounded" style="display:none; position:absolute; z-index:1000;">
     <ul class="list-unstyled m-0">
         <li><a class="dropdown-item" href="#" id="exportExcel"><i class="bi bi-file-earmark-excel"></i> Exporter en Excel</a></li>
@@ -198,6 +202,18 @@
 
 {% block scripts %}
 <script>
+function showFactureDetail(row) {
+    document.getElementById('detail-client').innerText = row.dataset.client;
+    document.getElementById('detail-dossier').innerText = row.dataset.dossier;
+    document.getElementById('detail-date').innerText = row.dataset.date;
+    document.getElementById('detail-montant-ht').innerText = row.dataset.montant_ht + ' FCFA';
+    document.getElementById('detail-montant-ttc').innerText = row.dataset.montant_ttc + ' FCFA';
+    document.getElementById('detail-statut').innerText = row.dataset.statut;
+
+    const modal = new bootstrap.Modal(document.getElementById('factureDetailModal'));
+    modal.show();
+}
+
 $(document).ready(function () {
     const table = $('#facturesTable').DataTable({ // Changé de dossiersTable à facturesTable
         autoWidth: false,
@@ -209,7 +225,7 @@ $(document).ready(function () {
                 text: '<i class="bi bi-file-earmark-excel"></i> Exporter Excel',
                 filename: 'factures_excel', // Nom de fichier spécifique aux factures
                 exportOptions: {
-                    columns: [0, 1, 2, 3, 4] // Ajusté aux colonnes des factures
+                    columns: [0, 1, 2, 3, 4, 5] // Ajusté aux colonnes des factures
                 }
             },
             {
@@ -219,14 +235,14 @@ $(document).ready(function () {
                 orientation: 'portrait', // Souvent plus adapté pour les factures simples
                 pageSize: 'A4',
                 exportOptions: {
-                    columns: [0, 1, 2, 3, 4]
+                    columns: [0, 1, 2, 3, 4, 5]
                 }
             },
             {
                 extend: 'print',
                 text: '<i class="bi bi-printer"></i> Imprimer',
                 exportOptions: {
-                    columns: [0, 1, 2, 3, 4]
+                    columns: [0, 1, 2, 3, 4, 5]
                 }
             }
         ],
@@ -245,34 +261,34 @@ $(document).ready(function () {
 
     // Double clic = ouvrir modal de détail
     $('.facture-row').on('dblclick', function() {
-        const factureId = $(this).data('id');
-        
-        $('#detail-facture-date').text($(this).data('date'));
-        $('#detail-facture-montant-ht').text($(this).data('montant-ht'));
-        $('#detail-facture-montant-ttc').text($(this).data('montant-ttc'));
-        $('#detail-facture-dossier-titre').text($(this).data('dossier-titre')); // Nouveau span pour le titre du dossier
+    const factureId = $(this).data('id');
+    
+    // Renseigner les détails
+    $('#detail-facture-date').text($(this).data('date'));
+    $('#detail-facture-montant-ht').text($(this).data('montant-ht'));
+    $('#detail-facture-montant-ttc').text($(this).data('montant-ttc'));
+    
+    $('#detail-facture-dossier-titre').text($(this).data('dossier'));
+    $('#detail-facture-client').text($(this).data('client'));
 
-        // Gérer le statut avec le badge
-        const statutFactureText = $(this).data('statut');
-        let statutFactureBadgeHtml = `<span class="badge bg-secondary">${statutFactureText}</span>`;
-        if (statutFactureText === 'En attente') {
-            statutFactureBadgeHtml = `<span class="badge bg-warning text-dark">${statutFactureText}</span>`;
-        } else if (statutFactureText === 'Payée') {
-            statutFactureBadgeHtml = `<span class="badge bg-success">${statutFactureText}</span>`;
-        } else if (statutFactureText === 'Annulée') {
-            statutFactureBadgeHtml = `<span class="badge bg-danger">${statutFactureText}</span>`;
-        }
-        $('#detail-facture-statut').html(statutFactureBadgeHtml);
+    const statutFactureText = $(this).data('statut');
+    let statutFactureBadgeHtml = `<span class="badge bg-secondary">${statutFactureText}</span>`;
+    if (statutFactureText === 'En attente') {
+        statutFactureBadgeHtml = `<span class="badge bg-warning text-dark">${statutFactureText}</span>`;
+    } else if (statutFactureText === 'Payée') {
+        statutFactureBadgeHtml = `<span class="badge bg-success">${statutFactureText}</span>`;
+    } else if (statutFactureText === 'Annulée') {
+        statutFactureBadgeHtml = `<span class="badge bg-danger">${statutFactureText}</span>`;
+    }
+    $('#detail-facture-statut').html(statutFactureBadgeHtml);
 
-        // Si tu as une description
-        // $('#detail-facture-description').text($(this).data('description'));
+    // Met à jour les liens Modifier et Supprimer dynamiquement
+    $('#editFactureLink').attr('href', '/factures/modifier/' + factureId);
+    $('#deleteFactureForm').attr('action', '/supprimer_facture/' + factureId);
+    
+    $('#factureDetailsModal').modal('show');
+   });
 
-        // Mettre à jour les liens Modifier et Supprimer
-        $('#editFactureLink').attr('href', '/factures/modifier/' + factureId); // Ajuste la route si nécessaire
-        $('#deleteFactureForm').attr('action', '/factures/supprimer/' + factureId); // Ajuste la route si nécessaire
-
-        $('#factureDetailsModal').modal('show');
-    });
 
     // Menu clic droit
     $('#facturesTable tbody').on('contextmenu', 'tr', function(e) {

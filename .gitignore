@@ -20,3 +20,4 @@ create_admin.py
 reset_password.py
 
 migrations/
+migrate_db.py

@@ -20,6 +20,7 @@
                     <th>Email</th>
                     <th>Téléphone</th>
                     <th>Adresse</th>
+                    <th>Référent</th>
                 </tr>
             </thead>
             <tbody>
@@ -29,6 +30,7 @@
                     data-societe="{{ client.societe }}"
                     data-email="{{ client.email }}"
                     data-telephone="{{ client.telephone }}"
+                    data-referent="{{ client.user.nom }}"
                     data-adresse="{{ client.adresse }}">
                     <td>{{ client.societe }}</td>
                     <td>{{ client.email }}</td>
@@ -36,6 +38,7 @@
                     <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                         {{ client.adresse }}
                     </td>
+                    <td>{{ client.user.nom }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -123,8 +126,11 @@
                             <div class="card-body">
                                 <h6 class="card-title text-primary"><i class="bi bi-folder2-open me-2"></i>Dossiers Associés</h6>
                                 <hr>
-                                <ul id="detail-dossiers-associes" class="list-group list-group-flush">
-                                    </ul>
+                                <ul id="detail-dossiers" class="list-group list-group-flush mb-3"></ul>
+
+                                <a id="voirDossiersBtn" class="btn btn-outline-primary" target="_blank">
+                                    Voir tous les dossiers
+                                </a>
                                 <p class="text-muted small mb-0 mt-3">
                                   <i class="bi bi-info-circle me-1"></i>Cette liste affiche les dossiers liés à ce client.
                                 </p>
@@ -154,8 +160,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                <a id="editLink" class="btn btn-outline-primary"><i class="bi bi-pencil-square me-1"></i> Modifier</a>
-                <form id="deleteTimesheetForm" method="POST" style="display:inline;">
+                <form id="deleteClientForm" method="POST" style="display:inline;">
                     {{ delete_form.hidden_tag() }}
                     <button type="submit" class="btn btn-danger">Supprimer</button>
                 </form>
@@ -214,13 +219,36 @@ $(document).ready(function () {
     });
 
     $('.client-row').on('dblclick', function () {
-        $('#detail-societe').text($(this).data('societe'));
-        $('#detail-email').text($(this).data('email'));
-        $('#detail-telephone').text($(this).data('telephone'));
-        $('#detail-adresse').text($(this).data('adresse'));
-        $('#editClientLink').attr('href', '/clients/modifier/' + $(this).data('id'));
-        $('#deleteClientForm').attr('action', '/clients/supprimer/' + $(this).data('id'));
-        $('#detailClientModal').modal('show');
+        const clientId = $(this).data('id');
+
+        // Chargement dynamique via API
+        fetch(`/client/${clientId}`)
+            .then(response => response.json())
+            .then(data => {
+                $('#detail-societe').text(data.societe);
+                $('#detail-email').text(data.email);
+                $('#detail-telephone').text(data.telephone);
+                $('#detail-adresse').text(data.adresse);
+
+                // Remplit la liste des dossiers
+                const dossierList = $('#detail-dossiers');
+                dossierList.empty();
+
+                if (data.dossiers && data.dossiers.length > 0) {
+                    data.dossiers.forEach(d => {
+                        dossierList.append(`<li class="list-group-item">${d.nom} (${d.statut})</li>`);
+                    });
+                } else {
+                    dossierList.append('<li class="list-group-item text-muted">Aucun dossier associé</li>');
+                }
+
+                // Met à jour les liens
+                $('#editClientLink').attr('href', '/clients/modifier/' + clientId);
+                $('#deleteClientForm').attr('action', '/clients/supprimer/' + clientId);
+                $('#voirDossiersBtn').attr('href', '/dossiers?client_id=' + clientId);
+
+                $('#detailClientModal').modal('show');
+            });
     });
 
     $('#clientsTable tbody').on('contextmenu', 'tr', function (e) {

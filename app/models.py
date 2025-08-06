@@ -12,6 +12,8 @@ class Client(db.Model):
     telephone = db.Column(db.String(20))
     adresse = db.Column(db.String(255))
     dossiers = db.relationship('Dossier', backref='client', lazy=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    user = db.relationship("User", backref="clients")
     supprimé = db.Column(db.Boolean, default=False) 
     
 
@@ -26,6 +28,10 @@ class Dossier(db.Model):
     client_id = db.Column(db.Integer, db.ForeignKey('client.id'), nullable=False)
     timesheets = db.relationship("Timesheet", back_populates="dossier")
     factures = db.relationship('Facture', backref='dossier', lazy=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    referent = db.relationship("User", backref="dossiers")
+    #user = db.relationship('User', backref='dossiers_attribués')
+    supprimé = db.Column(Boolean, default=False)
 
     #client = db.relationship('Client', backref=db.backref('dossiers', lazy=True))
 
@@ -45,6 +51,7 @@ class Timesheet(db.Model):
     description = db.Column(db.Text)
     statut = db.Column(db.String(50))  # en cours, facturée...
     taux_horaire = db.Column(db.Float, nullable=True)
+    devise = db.Column(db.String(3), default='XOF')
     tva_applicable = db.Column(db.Boolean, default=True)  # True = oui, False = non
 
 
@@ -58,7 +65,9 @@ class Timesheet(db.Model):
     user = db.relationship("User", backref="timesheets")
 
     facture_id = db.Column(db.Integer, db.ForeignKey('facture.id'), nullable=True)
-    facture = db.relationship('Facture', back_populates='timesheets')
+    facture_id = db.Column(db.Integer, db.ForeignKey('facture.id', ondelete='CASCADE'))
+    supprimé = db.Column(db.Boolean, default=False)
+
 
     def __repr__(self):
         return f'<Timesheet {self.id} - {self.date}>'
@@ -89,8 +98,9 @@ class Facture(db.Model):
     montant_ttc = db.Column(db.Float)
     statut = db.Column(db.String(50))
     dossier_id = db.Column(db.Integer, db.ForeignKey('dossier.id'), nullable=False)
-    timesheets = db.relationship('Timesheet', back_populates='facture')
-
+    timesheets = db.relationship("Timesheet", backref="facture", cascade="all, delete", passive_deletes=True)
+    supprimé = db.Column(db.Boolean, default=False)
+    #dossier = db.relationship('Dossier', backref='factures')
     def __repr__(self):
         return f'<Facture {self.id} - {self.montant_ttc} {self.statut}>'
 
@@ -101,6 +111,9 @@ class User(UserMixin, db.Model): # <-- Héritez de UserMixin
     role = db.Column(db.String(50))
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
+    supprimé = db.Column(db.Boolean, default=False)
+    
+
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -124,6 +137,47 @@ class User(UserMixin, db.Model): # <-- Héritez de UserMixin
     def __repr__(self):
         return f'<User {self.email}>'
 
+
+#ajout de document
+class Document(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    nom_fichier = db.Column(db.String(255), nullable=False)
+    chemin = db.Column(db.String(255), nullable=False)
+    dossier_id = db.Column(db.Integer, db.ForeignKey('dossier.id'), nullable=False)
+    date_upload = db.Column(db.DateTime, default=datetime.utcnow)
+
+    dossier = db.relationship('Dossier', backref=db.backref('documents', lazy=True))
+    supprimé = db.Column(db.Boolean, default=False)
+
+
+
+
+#changement d'attribution
+class AttributionHistorique(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    dossier_id = db.Column(db.Integer, db.ForeignKey('dossier.id'), nullable=False)
+    ancien_referent_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    nouveau_referent_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    date_attribution = db.Column(db.DateTime, default=datetime.utcnow)
+    auteur_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    dossier = db.relationship('Dossier', backref='historique_attributions', lazy=True)
+    ancien_referent = db.relationship('User', foreign_keys=[ancien_referent_id])
+    nouveau_referent = db.relationship('User', foreign_keys=[nouveau_referent_id])
+    auteur = db.relationship('User', foreign_keys=[auteur_id])
+
+
+#ajout calendrier
+class CalendarEvent(db.Model):
+    __tablename__ = 'calendar_event'
+    id        = db.Column(db.Integer, primary_key=True)
+    title     = db.Column(db.String(255), nullable=False)
+    start     = db.Column(db.DateTime, nullable=False)
+    end       = db.Column(db.DateTime, nullable=True)
+    user_id   = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at= db.Column(db.DateTime, default=datetime.utcnow)
+    description = db.Column(db.String(500), nullable=True)
+    user = db.relationship('User', backref='calendar_events')
 
 from app import app, db
 with app.app_context():

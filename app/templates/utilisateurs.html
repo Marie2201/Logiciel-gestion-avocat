@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block title %}Utilisateurs{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4">Liste des utilisateurs 👥</h2>
+
+    <p>Nombre d'utilisateurs : <strong>{{ users|length }}</strong></p> <!-- test -->
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <a href="{{ url_for('ajouter_utilisateur') }}" class="btn btn-success">
+            <i class="fas fa-user-plus me-2"></i> Ajouter un utilisateur
+        </a>
+    </div>
+
+    <div class="table-responsive rounded shadow p-3 bg-light">
+        <table id="utilisateursTable" class="table table-striped table-hover">
+            <thead class="table-success">
+                <tr>
+                    <th>ID</th>
+                    <th>Nom</th>
+                    <th>Email</th>
+                    <th>Rôle</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>{{ user.id }}</td>
+                    <td>{{ user.nom }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>{{ user.role }}</td>
+                    <td>
+                        <a href="{{ url_for('modifier_utilisateur', id=user.id) }}" class="btn btn-sm btn-warning">Modifier</a>
+                        <a href="{{ url_for('supprimer_utilisateur', id=user.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Confirmer la suppression de cet utilisateur ?');">Supprimer</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    $('#utilisateursTable').DataTable({
+        language: {
+            url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/fr-FR.json"
+        }
+    });
+
+    // Disparition automatique des messages flash
+    setTimeout(() => {
+        const alerts = document.querySelectorAll('#flash-messages .alert');
+        alerts.forEach(el => {
+            el.classList.remove('show');
+            el.classList.add('fade');
+            setTimeout(() => el.remove(), 500);
+        });
+    }, 5000);
+});
+</script>
+{% endblock %}

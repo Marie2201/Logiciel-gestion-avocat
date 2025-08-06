@@ -3,54 +3,60 @@ from flask_sqlalchemy import SQLAlchemy
 import os
 from flask_wtf.csrf import CSRFProtect
 from flask_moment import Moment
-from flask_migrate import Migrate # Importe Flask-Migrate ici
+from flask_migrate import Migrate
 from flask_login import LoginManager
 from dotenv import load_dotenv
+from flask_mail import Mail, Message
 
-app = Flask(__name__)
-
-# --- Configuration de l'application ---
-app.config['SECRET_KEY'] = 'secret-key' # À changer pour une vraie clé secrète en production !
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cabinet.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_ECHO'] = True
-
-
-db = SQLAlchemy(app) 
-
+# Chargement des variables d’environnement
 load_dotenv()
 
+app = Flask(__name__)
+basedir = os.path.abspath(os.path.dirname(__file__))
+load_dotenv(os.path.join(basedir, '.env'))
+
+# --- Config générale ---
+#app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'My-Houda-2025')
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['DEBUG'] = True
+app.config['SQLALCHEMY_ECHO'] = True
+app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'static', 'uploads')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+# --- Config MAIL ---
 
-# 2. CSRF Protection
+app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
+app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS') == 'True'
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
+
+
+
+MAIL_SERVER = 'sandbox.smtp.mailtrap.io'
+MAIL_PORT = 2525
+MAIL_USERNAME = 'oumar.sow@avocatshouda.com'
+
+
+
+
+
+# --- Extensions ---
+db = SQLAlchemy(app)
 csrf = CSRFProtect(app)
-
-# 3. Flask-Moment (pour gérer les dates avec Moment.js)
 moment = Moment(app)
-
-# 4. Flask-Migrate (pour les migrations de base de données)
-migrate = Migrate(app, db) 
-
-
-# ...
+migrate = Migrate(app, db)
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'login'  # Le nom de ta fonction de vue pour la connexion
-login_manager.login_message = "Veuillez vous connecter pour accéder à cette page."
+login_manager.login_view = 'login'
+mail = Mail(app)  # ← INIT DIRECTEMENT ICI
 
-# ...
-
-
+# --- Routes et modèles ---
 from app import routes, models
 from app.models import User
 
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
-
-
-
-
-
-
