@@ -1007,3 +1007,8 @@ def changer_mdp():
         return redirect(url_for('dashboard'))
 
     return render_template('changer_mdp.html', form=form)
+
+
+#mot de passe oublié
+
+
