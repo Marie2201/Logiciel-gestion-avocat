@@ -1,23 +1,10 @@
-# Python
-*.pyc
-__pycache__/
-
-# Environnement virtuel
 venv/
-
-# Fichiers de config sensibles
 .env
-
-# Base de données SQLite locale
-*.db
-*.sqlite3
-
-# Dossiers temporaires
 instance/
-.DS_Store
-
-create_admin.py
-reset_password.py
-
-migrations/
-migrate_db.py
+__pycache__/
+*.pyc
+logs/
+*.log
+backup_db.sh
+*.sql
+app/uploads/
