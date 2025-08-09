@@ -233,49 +233,93 @@
 let currentDossierId = null;
 
 $(document).ready(function () {
-    const csrfToken = $('meta[name="csrf-token"]').attr('content');
-    const table = $('#dossiersTable').DataTable({
-        autoWidth: false,
-        responsive: true,
-        dom: 'frtip',
-        language: {
-            search: "🔍 Rechercher :",
-            zeroRecords: "Aucun dossier trouvé",
-            paginate: { previous: "Précédent", next: "Suivant" }
-        }
-    })
+  const csrfToken = $('meta[name="csrf-token"]').attr('content');
 
+  const table = $('#dossiersTable').DataTable({
+    autoWidth: false,
+    responsive: true,
+    dom: 'frtip',
+    language: {
+      search: "🔍 Rechercher :",
+      zeroRecords: "Aucun dossier trouvé",
+      paginate: { previous: "Précédent", next: "Suivant" }
+    }
+  });
 
-    // Détails du dossier au double-clic
-    $('.dossier-row').on('dblclick', function () {
-        const row = this.dataset;
-        currentDossierId = row.id;
-        $('#detail-nom').text(row.nom);
-        $('#detail-client').text(row.client);
-        $('#detail-date').text(row.date);
-        $('#detail-procedure').text(row.procedure);
-        $('#detail-referent').text(row.referent);
-        $('#detail-description').text(row.description);
-        $('#editDossierLink').attr('href', '/dossiers/modifier/' + row.id);
-        $('#deleteDossierForm').attr('action', '/dossiers/supprimer/' + row.id);
-        const badge = row.statut === 'En cours'
-            ? `<span class="badge bg-warning text-dark">⏳ En cours</span>`
-            : row.statut === 'Terminé'
-            ? `<span class="badge bg-success">✔️ Terminé</span>`
-            : `<span class="badge bg-secondary">${row.statut}</span>`;
-        $('#detail-statut').html(badge);
-        new bootstrap.Modal(document.getElementById('detailDossierModal')).show();
-    });
+  // --- Charge la liste des documents dans la modale ---
+  async function loadDossierDocuments(dossierId) {
+    const $list    = $('#detail-documents');
+    $list.empty().append('<li class="list-group-item text-muted">Chargement...</li>');
 
-    // Menu contextuel
-    $('#dossiersTable tbody').on('contextmenu', 'tr', function (e) {
-        e.preventDefault();
-        $('#context-menu').css({ top: e.pageY + 'px', left: e.pageX + 'px' }).show();
-    });
-    $(document).on('click', () => $('#context-menu').hide());
-    $('#exportExcel').on('click', () => table.button('.buttons-excel').trigger());
-    $('#exportPDF').on('click', () => table.button('.buttons-pdf').trigger());
-    $('#printTable').on('click', () => table.button('.buttons-print').trigger());
+    try {
+      const res = await fetch(`/dossier/${dossierId}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+
+      // Remplir (si tu as ces éléments dans la modale)
+      $('#detail-nom').text(data.nom || '');
+      $('#detail-description').text(data.description || '');
+      $('#detail-statut').html($('#detail-statut').html()); // on touche pas à ton badge
+
+      // Documents
+      $list.empty();
+      if (!data.documents || data.documents.length === 0) {
+        $list.append('<li class="list-group-item text-muted">Aucun document pour ce dossier.</li>');
+        return;
+      }
+
+      for (const d of data.documents) {
+        $list.append(`
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span class="text-truncate" style="max-width:70%">${d.nom_fichier}</span>
+            <a class="btn btn-sm btn-outline-primary" href="${d.url}" target="_blank" rel="noopener">Ouvrir</a>
+          </li>
+        `);
+      }
+    } catch (e) {
+      console.error(e);
+      $list.empty().append('<li class="list-group-item text-danger">Impossible de charger les documents.</li>');
+    }
+  }
+
+  // --- Détails du dossier au double-clic (délégation pour DataTables) ---
+  $('#dossiersTable tbody').on('dblclick', 'tr.dossier-row', function () {
+    const row = this.dataset;    // nécessite data-* sur <tr>
+
+    currentDossierId = row.id;
+
+    // Renseigne les champs déjà présents
+    $('#detail-nom').text(row.nom);
+    $('#detail-client').text(row.client);
+    $('#detail-date').text(row.date);
+    $('#detail-procedure').text(row.procedure);
+    $('#detail-referent').text(row.referent);
+    $('#detail-description').text(row.description);
+    $('#editDossierLink').attr('href', '/dossiers/modifier/' + row.id);
+    $('#deleteDossierForm').attr('action', '/dossiers/supprimer/' + row.id);
+
+    const badge = row.statut === 'En cours'
+      ? `<span class="badge bg-warning text-dark">⏳ En cours</span>`
+      : row.statut === 'Terminé'
+        ? `<span class="badge bg-success">✔️ Terminé</span>`
+        : `<span class="badge bg-secondary">${row.statut}</span>`;
+    $('#detail-statut').html(badge);
+
+    // >>> CHARGER LES DOCUMENTS <<<
+    loadDossierDocuments(row.id);
+
+    new bootstrap.Modal(document.getElementById('detailDossierModal')).show();
+  });
+
+  // --- Menu contextuel
+  $('#dossiersTable tbody').on('contextmenu', 'tr', function (e) {
+    e.preventDefault();
+    $('#context-menu').css({ top: e.pageY + 'px', left: e.pageX + 'px' }).show();
+  });
+  $(document).on('click', () => $('#context-menu').hide());
+  $('#exportExcel').on('click', () => table.button('.buttons-excel').trigger());
+  $('#exportPDF').on('click', () => table.button('.buttons-pdf').trigger());
+  $('#printTable').on('click', () => table.button('.buttons-print').trigger());
 
     
     // --- FullCalendar partagé 
