@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% block content %}
-  <h2>Modifier : {{ client.societe }}</h2>
+  <h2>Modifier : {{ client.client }}</h2>
   <form method="POST">
     {{ form.hidden_tag() }}
 
     <div class="form-group">
-      {{ form.societe.label }} {{ form.societe(class="form-control") }}
+      {{ form.client.label }} {{ form.client(class="form-control") }}
     </div>
     <div class="form-group">
       {{ form.email.label }} {{ form.email(class="form-control") }}

@@ -25,7 +25,7 @@ class TimesheetForm(FlaskForm):
 
 #formulaire client
 class ClientForm(FlaskForm):
-    societe = StringField("Socété", validators=[DataRequired()])
+    societe = StringField("Client", validators=[DataRequired()])
     email = StringField("Email", validators=[Optional(), Email()])
     telephone = StringField("Téléphone", validators=[Optional()])
     adresse = StringField("Adresse", validators=[Optional()])

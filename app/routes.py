@@ -508,7 +508,8 @@ def delete_timesheet(id):
 def login():
     form = LoginForm()
     if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data).first()
+        user = User.query.filter_by(email=form.email.data.lower()).first()
+        print("USER TROUVÉ :", user) 
         if user and check_password_hash(user.password_hash, form.password.data):  # ou form.mot_de_passe.data
             login_user(user, remember=form.remember_me.data)
             flash('Connexion réussie', 'success')
@@ -1012,3 +1013,8 @@ def changer_mdp():
 #mot de passe oublié
 
 
+from flask import send_from_directory
+
+@app.route('/robots.txt')
+def robots_txt():
+    return send_from_directory('static', 'robots.txt')

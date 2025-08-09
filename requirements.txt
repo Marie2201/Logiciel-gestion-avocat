@@ -6,3 +6,4 @@ Flask-Mail
 python-dotenv
 pymysql
 gunicorn
+Flask-moment
