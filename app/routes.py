@@ -1,7 +1,7 @@
 from flask import render_template, redirect, url_for, flash, request, jsonify, send_from_directory, abort, make_response, current_app
 from app.forms import TimesheetForm, ClientForm, DossierForm, DeleteForm, FactureForm, AjoutUtilisateurForm, LoginForm, GenererFactureForm, DummyForm
 from app.forms import DocumentForm, RegistrationForm, UserForm, AttributionForm, FlaskForm, ChangerReferentForm, ChangePasswordForm
-from app.models import Timesheet, Dossier, Client, Facture, User, Document, AttributionHistorique, CalendarEvent, Notification
+from app.models import Timesheet, Dossier, Client, Facture, User, Document, AttributionHistorique, CalendarEvent
 from app import app, db
 from datetime import datetime, timedelta, date
 from sqlalchemy.sql import func
@@ -999,13 +999,13 @@ def attribuer_dossier():
         dossier = Dossier.query.get_or_404(dossier_id)
         dossier.user_id = new_user_id
 
-        url = url_for('dossiers', _anchor=f'dossier-{dossier.id}')
-        create_notification(
-            user_id=new_user_id,
-            title="Nouveau dossier attribué",
-            message=f"Vous avez reçu le dossier « {dossier.nom} ».",
-            url=url
-        )
+        # url = url_for('dossiers', _anchor=f'dossier-{dossier.id}')
+        # create_notification(
+        #     user_id=new_user_id,
+        #     title="Nouveau dossier attribué",
+        #     message=f"Vous avez reçu le dossier « {dossier.nom} ».",
+        #     url=url
+        # )
         db.session.commit()
         flash("Dossier attribué et notification créée.", "success")
         return redirect(url_for('dossiers'))
