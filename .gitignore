@@ -10,5 +10,4 @@ backup_db.sh
 app/uploads/
 create_admin.py
 migrate_db.py
-migrations/
 reset_password.py
