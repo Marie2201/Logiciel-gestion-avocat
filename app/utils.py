@@ -29,3 +29,5 @@ Le Cabinet
     )
 
     mail.send(msg)
+
+

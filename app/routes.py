@@ -1,7 +1,7 @@
-from flask import render_template, redirect, url_for, flash, request, jsonify, send_from_directory, abort
+from flask import render_template, redirect, url_for, flash, request, jsonify, send_from_directory, abort, make_response, current_app
 from app.forms import TimesheetForm, ClientForm, DossierForm, DeleteForm, FactureForm, AjoutUtilisateurForm, LoginForm, GenererFactureForm, DummyForm
 from app.forms import DocumentForm, RegistrationForm, UserForm, AttributionForm, FlaskForm, ChangerReferentForm, ChangePasswordForm
-from app.models import Timesheet, Dossier, Client, Facture, User, Document, AttributionHistorique, CalendarEvent
+from app.models import Timesheet, Dossier, Client, Facture, User, Document, AttributionHistorique, CalendarEvent, Notification
 from app import app, db
 from datetime import datetime, timedelta, date
 from sqlalchemy.sql import func
@@ -292,10 +292,10 @@ def modifier_dossier(dossier_id):
         User.role.in_(['admin','managing-partner', 'partner', 'managing-associate', 'juriste', 'avocat']),
         User.supprimé == False
     ).all()]
-    utilisateurs = User.query.filter(
-    User.role.in_(['admin', 'managing-partner', 'partner', 'managing-associate', 'juriste', 'avocat']),
-    User.supprimé == False
-).all()
+#     utilisateurs = User.query.filter(
+#     User.role.in_(['admin', 'managing-partner', 'partner', 'managing-associate', 'juriste', 'avocat']),
+#     User.supprimé == False
+# ).all()
     print("📋 Utilisateurs disponibles pour attribution :")
     tous_les_users = User.query.all()
     print("🧾 Liste complète des utilisateurs en base :")
@@ -820,97 +820,46 @@ def supprimer_utilisateur(id):
 
 
 
-#attribution dossier
-@app.route('/attribuer_dossier', methods=['GET', 'POST'])
-@login_required
-@roles_required('admin', 'managing-partner', 'partner','managing-associate')  # ou un décorateur que tu définis
-def attribuer_dossier():
-    form = AttributionForm()
-    form.dossier_id.choices = [(d.id, d.nom) for d in Dossier.query.all()]
-    form.user_id.choices = [(u.id, u.nom) for u in User.query.all() if u.role != 'admin']
-
-    if form.validate_on_submit():
-        dossier = Dossier.query.get(form.dossier_id.data)
-        utilisateur = User.query.get(form.user_id.data)
-        dossier.user = utilisateur
-        db.session.commit()
-        flash(f"Dossier '{dossier.nom}' attribué à {utilisateur.nom}.", 'success')
-        return redirect(url_for('dossiers'))
-
-    return render_template('attribuer_dossier.html', form=form)
 
 
-#modifier référent
-@app.route('/modifier_referent/<int:dossier_id>', methods=['GET', 'POST'])
-@login_required
-def modifier_referent(dossier_id):
-    dossier = Dossier.query.get_or_404(dossier_id)
-    anciens_referents = User.query.filter(User.role.in_(['avocat', 'juriste',  'managing-partner', 'partner','managing-associate'])).all()
+# @app.route('/changer_referent_popup', methods=['POST'])
+# @login_required
+# def changer_referent_popup():
+#     form = ChangerReferentForm()
 
-    form = FlaskForm()
-    form.referent_id = SelectField('Nouveau référent', coerce=int, choices=[(u.id, u.nom) for u in anciens_referents])
-    
-    if request.method == 'POST' and 'referent_id' in request.form:
-        ancien_id = dossier.user_id
-        nouveau_id = int(request.form['referent_id'])
+#     # Recharge les choix dans le SelectField
+#     form.nouveau_referent.choices = [(u.id, u.nom) for u in User.query.all()]
 
-        if nouveau_id != ancien_id:
-            dossier.user_id = nouveau_id
+#     if form.validate_on_submit():
+#         dossier_id = form.dossier_id.data
+#         nouveau_referent_id = form.nouveau_referent.data
 
-            # Sauvegarder l'historique
-            historique = AttributionHistorique(
-                dossier_id=dossier.id,
-                ancien_referent_id=ancien_id,
-                nouveau_referent_id=nouveau_id,
-                auteur_id=current_user.id
-            )
-            db.session.add(historique)
-            db.session.commit()
+#         dossier = Dossier.query.get_or_404(dossier_id)
+#         ancien_referent_id = dossier.user_id
 
-            flash("Référent modifié avec succès, historique mis à jour.", "success")
-        else:
-            flash("Le nouveau référent est identique à l'actuel.", "warning")
+#         if int(nouveau_referent_id) != ancien_referent_id:
+#             dossier.user_id = nouveau_referent_id
 
-        return redirect(url_for('dossiers'))
+#             historique = AttributionHistorique(
+#                 dossier_id=dossier.id,
+#                 ancien_referent_id=ancien_referent_id,
+#                 nouveau_referent_id=nouveau_referent_id,
+#                 auteur_id=current_user.id
+#             )
 
-    return render_template("modifier_referent.html", dossier=dossier, form=form)
+#             db.session.add(historique)
+#             db.session.commit()
+#             flash("Référent modifié avec succès.", "success")
+#         else:
+#             flash("Aucun changement effectué.", "info")
+#     else:
+#         flash("Erreur dans le formulaire.", "danger")
+#         print("Form errors:", form.errors)
+
+#     return redirect(url_for('dossiers'))
 
 
-@app.route('/changer_referent_popup', methods=['POST'])
-@login_required
-def changer_referent_popup():
-    form = ChangerReferentForm()
 
-    # Recharge les choix dans le SelectField
-    form.nouveau_referent.choices = [(u.id, u.nom) for u in User.query.all()]
-
-    if form.validate_on_submit():
-        dossier_id = form.dossier_id.data
-        nouveau_referent_id = form.nouveau_referent.data
-
-        dossier = Dossier.query.get_or_404(dossier_id)
-        ancien_referent_id = dossier.user_id
-
-        if int(nouveau_referent_id) != ancien_referent_id:
-            dossier.user_id = nouveau_referent_id
-
-            historique = AttributionHistorique(
-                dossier_id=dossier.id,
-                ancien_referent_id=ancien_referent_id,
-                nouveau_referent_id=nouveau_referent_id,
-                auteur_id=current_user.id
-            )
-
-            db.session.add(historique)
-            db.session.commit()
-            flash("Référent modifié avec succès.", "success")
-        else:
-            flash("Aucun changement effectué.", "info")
-    else:
-        flash("Erreur dans le formulaire.", "danger")
-        print("Form errors:", form.errors)
-
-    return redirect(url_for('dossiers'))
 
 #calendrier
 
@@ -1018,3 +967,115 @@ from flask import send_from_directory
 @app.route('/robots.txt')
 def robots_txt():
     return send_from_directory('static', 'robots.txt')
+
+
+#notifications 
+def create_notification(*, user_id:int, title:str, message:str, url:str|None=None):
+    # notifications in-app désactivées volontairement
+    return
+
+ATTRIBUTORS = {'admin','managing-partner','partner','managing-associate'}
+ASSIGNEE_ROLES = {'avocat','juriste','associate','managing-associate'}  # qui peut recevoir un dossier
+
+
+
+
+#attribution dossier
+# ✅ ROUTE UNIQUE pour attribuer
+import logging
+log = logging.getLogger(__name__)
+
+@app.route('/dossiers/attribuer', methods=['GET','POST'])
+@roles_required('admin','managing-partner','partner','managing-associate')
+def attribuer_dossier():
+    form = AttributionForm()
+    form.dossier_id.choices = [(d.id, f"{d.client.societe} - {d.nom}") for d in Dossier.query.order_by(Dossier.id)]
+    form.user_id.choices    = [(u.id, u.nom) for u in User.query.order_by(User.nom)]  # ← test sans filtre
+
+    if form.validate_on_submit():
+        dossier_id  = form.dossier_id.data
+        new_user_id = form.user_id.data
+
+        dossier = Dossier.query.get_or_404(dossier_id)
+        dossier.user_id = new_user_id
+
+        url = url_for('dossiers', _anchor=f'dossier-{dossier.id}')
+        create_notification(
+            user_id=new_user_id,
+            title="Nouveau dossier attribué",
+            message=f"Vous avez reçu le dossier « {dossier.nom} ».",
+            url=url
+        )
+        db.session.commit()
+        flash("Dossier attribué et notification créée.", "success")
+        return redirect(url_for('dossiers'))
+    else:
+        if request.method == 'POST':
+            current_app.logger.warning(f"[attribuer] form errors: {form.errors}")
+
+    return render_template('attribuer_dossier.html', form=form)  # ← correspond au vrai fichier
+
+
+
+
+
+
+
+# #modifier référent
+# @app.route('/modifier_referent/<int:dossier_id>', methods=['GET', 'POST'])
+# @login_required
+# def modifier_referent(dossier_id):
+#     require_attributor()  # ⛔
+
+#     dossier = Dossier.query.get_or_404(dossier_id)
+#     anciens_referents = User.query.filter(User.role.in_(ASSIGNEE_ROLES)).all()
+
+#     form = FlaskForm()
+#     form.referent_id = SelectField('Nouveau référent', coerce=int,
+#                                    choices=[(u.id, u.nom) for u in anciens_referents])
+
+#     if request.method == 'POST' and 'referent_id' in request.form:
+#         ancien_id = dossier.user_id
+#         nouveau_id = int(request.form['referent_id'])
+
+#         if nouveau_id != ancien_id:
+#             dossier.user_id = nouveau_id
+#             historique = AttributionHistorique(
+#                 dossier_id=dossier.id,
+#                 ancien_referent_id=ancien_id,
+#                 nouveau_referent_id=nouveau_id,
+#                 auteur_id=current_user.id
+#             )
+#             db.session.add(historique)
+
+#             # notif
+#             try:
+#                 url = url_for('get_dossier', id=dossier.id)
+#                 create_notification(
+#                     user_id=nouveau_id,
+#                     title="Nouveau référent",
+#                     message=f"Vous êtes désormais référent du dossier « {dossier.nom} ».",
+#                     url=url
+#                 )
+#                 db.session.commit()
+#                 flash("Référent modifié avec succès, historique mis à jour.", "success")
+#             except Exception:
+#                 db.session.rollback()
+#                 flash("Erreur lors de la modification du référent.", "danger")
+#         else:
+#             flash("Le nouveau référent est identique à l'actuel.", "warning")
+
+#         return redirect(url_for('dossiers'))
+
+#     return render_template("modifier_referent.html", dossier=dossier, form=form)
+
+
+def roles_required(*roles):
+    def deco(f):
+        @wraps(f)
+        def wrapper(*a, **kw):
+            if not current_user.is_authenticated or current_user.role not in roles:
+                abort(403)  # ou flash + redirect si tu préfères
+            return f(*a, **kw)
+        return wrapper
+    return deco

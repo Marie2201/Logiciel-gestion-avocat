@@ -8,3 +8,7 @@ logs/
 backup_db.sh
 *.sql
 app/uploads/
+create_admin.py
+migrate_db.py
+migrations/
+reset_password.py
