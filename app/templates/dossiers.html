@@ -17,6 +17,7 @@
         <table id="dossiersTable" class="table table-bordered table-hover rounded shadow w-100 overflow-hidden" style="background-color: #ffffff;">
             <thead class="table-success text-dark">
                 <tr>
+                    <th>ID Dossier</th>
                     <th>Nature du dossier</th>
                     <th>Client</th>
                     <th>Date d'ouverture</th>
@@ -30,6 +31,7 @@
                 {% for dossier in dossiers %}
                 <tr class="dossier-row"
                     data-id="{{ dossier.id }}"
+                    data-numero="{{ dossier.numero }}"
                     data-nom="{{ dossier.nom }}"
                     data-client="{{ dossier.client.societe }}"
                     data-date="{{ dossier.date_ouverture.strftime('%d/%m/%Y') }}"
@@ -38,6 +40,7 @@
                     data-statut="{{ dossier.statut }}"
                     data-description="{{ dossier.description }}">
                     
+                    <td>{{ dossier.numero }}</td>
                     <td>{{ dossier.nom }}</td>
                     <td>{{ dossier.client.societe }}</td>
                     <td>{{ dossier.date_ouverture.strftime('%d/%m/%Y') }}</td>
@@ -87,6 +90,7 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body row g-3">
+            <div class="col-md-6">{{ form.numero.label(class="form-label") }}{{ form.numero(class="form-control") }}</div>
             <div class="col-md-6">{{ form.nom.label(class="form-label") }}{{ form.nom(class="form-control") }}</div>
             <div class="col-md-6">{{ form.date_ouverture.label(class="form-label") }}{{ form.date_ouverture(class="form-control") }}</div>
             <div class="col-md-6">{{ form.procedure.label(class="form-label") }}{{ form.procedure(class="form-select") }}</div>
@@ -105,38 +109,6 @@
     </div>
   </div>
 </div>
-<!--<div class="modal fade" id="addEventModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <form id="addEventForm" class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title">Ajouter un événement</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <div class="mb-3">
-          <label class="form-label">Titre</label>
-          <input type="text" id="eventTitle" class="form-control" required>
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Début</label>
-          <input type="datetime-local" id="eventStart" class="form-control" required>
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Fin</label>
-          <input type="datetime-local" id="eventEnd" class="form-control">
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Description</label>
-          <input type="text" id="eventDescription" class="form-control" required>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-        <button type="submit" class="btn btn-primary">Enregistrer</button>
-      </div>
-    </form>
-  </div>
-</div>-->
 <div class="modal fade" id="detailDossierModal" tabindex="-1" aria-labelledby="detailDossierLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -150,6 +122,7 @@
             <div class="card-body">
               <h6 class="card-title text-primary"><i class="bi bi-info-circle me-2"></i>Informations Principales</h6>
               <hr>
+              <p><strong>ID Dossier :</strong> <span id="detail-numero"></span></p>
               <p><strong>Nature :</strong> <span id="detail-nom"></span></p>
               <p><strong>Client :</strong> <span id="detail-client"></span></p>
               <p><strong>Date d'ouverture :</strong> <span id="detail-date"></span></p>
@@ -289,6 +262,7 @@ $(document).ready(function () {
     currentDossierId = row.id;
 
     // Renseigne les champs déjà présents
+    $('#detail-numero').text(row.numero);
     $('#detail-nom').text(row.nom);
     $('#detail-client').text(row.client);
     $('#detail-date').text(row.date);

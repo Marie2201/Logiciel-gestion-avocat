@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#0d6efd">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+    <link rel="icon" href="{{ url_for('static', filename='icons/icon-192.png') }}" type="image/png">
+
     <title>{% block title %}Myhouda{% endblock %}</title>
 
     {# TOUS LES LIENS CSS VONT ICI DANS LE HEAD #}
@@ -287,6 +297,104 @@
         });
     }, 5000);
     </script>
+
+    <script>
+    if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        .then(reg => console.log('SW ok, scope:', reg.scope))
+        .catch(err => console.error('SW fail:', err));
+    }
+
+    // Bouton d’installation manuel (Edge/Chrome)
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    const btn = document.getElementById('installBtn');
+    if (btn) btn.hidden = false;
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('installBtn');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+        btn.hidden = true;
+        if (deferredPrompt) {
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        } else {
+        alert("Dans Edge : menu ⋯ → Applications → Installer ce site comme une application.");
+        }
+    });
+    });
+
+    window.addEventListener('appinstalled', () => {
+    const btn = document.getElementById('installBtn');
+    if (btn) btn.hidden = true;
+    });
+    </script>
+
+    <!-- Ajoute quelque part dans le body (par ex collé en bas) -->
+    <button id="installBtn" hidden
+            class="btn btn-outline-primary btn-sm position-fixed"
+            style="right:1rem; bottom:1rem; z-index:1080;">
+    Installer l’app
+    </button>
+    <style>
+    #updatePwa {
+        position: fixed; left: 50%; transform: translateX(-50%);
+        bottom: 16px; background: #0d6efd; color: #fff;
+        padding: 10px 14px; border-radius: 999px; display:none; z-index: 1080;
+    }
+    #updatePwa button{margin-left:8px;border:none;background:#fff;color:#0d6efd;padding:6px 10px;border-radius:999px;cursor:pointer}
+    </style>
+    <div id="updatePwa">Une mise à jour est disponible <button id="reloadPwa">Mettre à jour</button></div>
+
+    <script>
+    if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(reg => {
+        // Nouveau SW en attente d’activation
+        function showUpdate(registration) {
+        const bar = document.getElementById('updatePwa');
+        const btn = document.getElementById('reloadPwa');
+        if (!bar || !btn) return;
+        bar.style.display = 'inline-flex';
+        btn.onclick = () => {
+            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        };
+        }
+
+        if (reg.waiting) showUpdate(reg);
+        reg.addEventListener('updatefound', () => {
+        const sw = reg.installing;
+        sw.addEventListener('statechange', () => {
+            if (sw.state === 'installed' && reg.waiting) showUpdate(reg);
+        });
+        });
+
+        // Quand le SW prend le contrôle après skipWaiting
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
+        });
+
+        // Ecoute le message du SW
+        let refreshing;
+        if (!refreshing) {
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (refreshing) return; refreshing = true; window.location.reload();
+        });
+        }
+    });
+
+    // Permettre au SW de recevoir “SKIP_WAITING”
+    navigator.serviceWorker.addEventListener('message', (event) => {
+        // placeholder si besoin
+    });
+    }
+    </script>
+
+
 
 </body>
 </html>

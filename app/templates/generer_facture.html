@@ -3,123 +3,134 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h2 class="text-primary mb-4"><i class="bi bi-file-earmark-plus"></i> Générer une Facture</h2>
-    <a href="{{ url_for('factures') }}" class="btn btn-outline-secondary mb-3">
-        <i class="bi bi-arrow-left"></i> Retour aux factures
-    </a>
-    <form method="GET" class="row g-3 mb-4">
-        {% if current_user.role in ['admin', 'associé'] %}
-        <div class="col-md-4">
-            <label for="utilisateur" class="form-label">Utilisateur</label>
-            <select class="form-select" id="utilisateur" name="utilisateur_id">
-                <option value="">Tous les utilisateurs</option>
-                {% for user in utilisateurs %}
-                    <option value="{{ user.id }}" {% if request.args.get('user_id', type=int) %}selected{% endif %}>
-                        {{ user.nom }}
-                    </option>
-                {% endfor %}
-            </select>
-        </div>
-        {% endif %}
+  <h2 class="text-primary mb-4"><i class="bi bi-file-earmark-plus"></i> Générer une Facture</h2>
+  <a href="{{ url_for('factures') }}" class="btn btn-outline-secondary mb-3">
+    <i class="bi bi-arrow-left"></i> Retour aux factures
+  </a>
 
-        <div class="col-md-3">
-            <label class="form-label">Date de début</label>
-            <input type="date" class="form-control" name="date_debut" value="{{ request.args.get('date_debut', '') }}">
-        </div>
-        <div class="col-md-3">
-            <label class="form-label">Date de fin</label>
-            <input type="date" class="form-control" name="date_fin" value="{{ request.args.get('date_fin', '') }}">
-        </div>
-        <div class="col-md-2 align-self-end">
-            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Filtrer</button>
-        </div>
-        <div class="form-group">
-            <label for="devise">Devise</label>
-            <select name="devise" id="devise" class="form-select">
-                <option value="EUR">Euro (€)</option>
-                <option value="FCFA">Franc CFA (FCFA)</option>
-            </select>
-        </div>
-
-    </form>
-
-    {% if timesheets %}
-    <form method="POST" action="{{ url_for('generer_facture') }}">
-        {{ form.hidden_tag() }}
-        <div class="table-responsive shadow-sm">
-            <table class="table table-bordered table-hover" id="timesheetSelectionTable">
-                <thead class="table-light">
-                    <tr>
-                        <th><input type="checkbox" id="checkAll"></th>
-                        <th>Date</th>
-                        <th>Client</th>
-                        <th>Dossier</th>
-                        <th>Utilisateur</th>
-                        <th>Montant HT</th>
-                        <th>Montant TTC</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for ts in timesheets %}
-                    <tr>
-                        <td><input type="checkbox" name="timesheet_ids" value="{{ ts.id }}"></td>
-                        <td>{{ ts.date.strftime('%d/%m/%Y') }}</td>
-                        <td>{{ ts.dossier.client.societe }}</td>
-                        <td>{{ ts.dossier.nom }}</td>
-                        <td>{{ ts.user.nom }}</td>
-                        <td>
-                            {% if devise == 'EUR' %}
-                                {{ '{:,.2f}'.format(ts.montant_ht / 655.957) }} €
-                            {% else %}
-                                {{ '{:,.2f}'.format(ts.montant_ht) }} FCFA
-                            {% endif %}
-                        </td>
-
-                        <td>
-                            {% if devise == 'EUR' %}
-                                {{ '{:,.2f}'.format(ts.montant_ttc / 655.957) }} €
-                            {% else %}
-                                {{ '{:,.2f}'.format(ts.montant_ttc) }} FCFA
-                            {% endif %}
-                        </td>
-
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        <div class="mt-3 text-end">
-            <input type="hidden" name="devise" value="{{ devise }}">
-            <button type="submit" class="btn btn-success"><i class="bi bi-check-circle"></i> Générer la facture</button>
-        </div>
-    </form>
-    {% else %}
-        <p class="text-muted fst-italic">Aucun timesheet trouvé pour les critères sélectionnés.</p>
+  <form method="GET" class="row g-3 mb-4">
+    {% if current_user.role in ['admin', 'associé', 'managing-partner', 'partner', 'managing-associate'] %}
+    <div class="col-md-4">
+      <label for="utilisateur" class="form-label">Utilisateur</label>
+      <select class="form-select" id="utilisateur" name="utilisateur_id">
+        <option value="">Tous les utilisateurs</option>
+        {% for user in utilisateurs %}
+          <option value="{{ user.id }}" {% if request.args.get('utilisateur_id', type=int) == user.id %}selected{% endif %}>
+            {{ user.nom }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
     {% endif %}
-</div>
 
+    <div class="col-md-3">
+      <label class="form-label">Date de début</label>
+      <input type="date" class="form-control" name="date_debut" value="{{ request.args.get('date_debut', '') }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Date de fin</label>
+      <input type="date" class="form-control" name="date_fin" value="{{ request.args.get('date_fin', '') }}">
+    </div>
+
+    <div class="col-md-2">
+      <label for="devise" class="form-label">Devise d’affichage</label>
+      <select name="devise" id="devise" class="form-select">
+        <option value="EUR" {% if devise == 'EUR' %}selected{% endif %}>Euro (€)</option>
+        <option value="XOF" {% if devise == 'XOF' %}selected{% endif %}>Franc CFA (FCFA)</option>
+      </select>
+    </div>
+
+    <div class="col-md-2 align-self-end">
+      <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Filtrer</button>
+    </div>
+  </form>
+
+  {% if timesheets %}
+  <form method="POST" action="{{ url_for('generer_facture') }}">
+    {{ form.hidden_tag() }}
+    <div class="table-responsive shadow-sm">
+      <table class="table table-bordered table-hover" id="timesheetSelectionTable">
+        <thead class="table-light">
+          <tr>
+            <th><input type="checkbox" id="checkAll"></th>
+            <th>Date</th>
+            <th>Client</th>
+            <th>Dossier</th>
+            <th>Utilisateur</th>
+            <th>Montant HT</th>
+            <th>Montant TTC</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set RATE_EUR_XOF = 655.957 %}
+          {% for ts in timesheets %}
+          <tr>
+            <td><input type="checkbox" name="timesheet_ids" value="{{ ts.id }}"></td>
+            <td>{{ ts.date.strftime('%d/%m/%Y') }}</td>
+            <td>{{ ts.dossier.client.societe }}</td>
+            <td>{{ ts.dossier.nom }}</td>
+            <td>{{ ts.user.nom }}</td>
+
+            {# ---- HT ---- #}
+            <td>
+              {% if devise == 'EUR' %}
+                {% if ts.devise in ['XOF', 'FCFA', None] %}
+                  {{ '{:,.2f}'.format(ts.montant_ht / RATE_EUR_XOF) }} €
+                {% else %}
+                  {{ '{:,.2f}'.format(ts.montant_ht) }} €
+                {% endif %}
+              {% else %}
+                {% if ts.devise == 'EUR' %}
+                  {{ '{:,.2f}'.format(ts.montant_ht * RATE_EUR_XOF) }} FCFA
+                {% else %}
+                  {{ '{:,.2f}'.format(ts.montant_ht) }} FCFA
+                {% endif %}
+              {% endif %}
+            </td>
+
+            {# ---- TTC ---- #}
+            <td>
+              {% if devise == 'EUR' %}
+                {% if ts.devise in ['XOF', 'FCFA', None] %}
+                  {{ '{:,.2f}'.format(ts.montant_ttc / RATE_EUR_XOF) }} €
+                {% else %}
+                  {{ '{:,.2f}'.format(ts.montant_ttc) }} €
+                {% endif %}
+              {% else %}
+                {% if ts.devise == 'EUR' %}
+                  {{ '{:,.2f}'.format(ts.montant_ttc * RATE_EUR_XOF) }} FCFA
+                {% else %}
+                  {{ '{:,.2f}'.format(ts.montant_ttc) }} FCFA
+                {% endif %}
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="mt-3 text-end">
+      <input type="hidden" name="devise" value="{{ devise }}"> {# poste 'EUR' ou 'XOF' #}
+      <button type="submit" class="btn btn-success"><i class="bi bi-check-circle"></i> Générer la facture</button>
+    </div>
+  </form>
+  {% else %}
+    <p class="text-muted fst-italic">Aucun timesheet trouvé pour les critères sélectionnés.</p>
+  {% endif %}
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const deviseSelect = document.getElementById('devise');
-    const tauxInput = document.getElementById('tauxHoraireInput');
-
-    deviseSelect.addEventListener('change', function () {
-        const currentValue = parseFloat(tauxInput.value.replace(',', '.')) || 0;
-        const selectedDevise = deviseSelect.value;
-
-        if (selectedDevise === 'FCFA') {
-            // Conversion EUR -> FCFA
-            tauxInput.value = (currentValue * 655.957).toFixed(0);
-        } else if (selectedDevise === 'EUR') {
-            // Conversion FCFA -> EUR
-            tauxInput.value = (currentValue / 655.957).toFixed(2);
-        }
+  // Cocher/décocher tout
+  const checkAll = document.getElementById('checkAll');
+  if (checkAll) {
+    checkAll.addEventListener('change', () => {
+      document.querySelectorAll('input[name="timesheet_ids"]').forEach(cb => cb.checked = checkAll.checked);
     });
+  }
 });
 </script>
-
 {% endblock %}

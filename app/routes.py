@@ -1,6 +1,7 @@
 from flask import render_template, redirect, url_for, flash, request, jsonify, send_from_directory, abort, make_response, current_app
 from app.forms import TimesheetForm, ClientForm, DossierForm, DeleteForm, FactureForm, AjoutUtilisateurForm, LoginForm, GenererFactureForm, DummyForm
 from app.forms import DocumentForm, RegistrationForm, UserForm, AttributionForm, FlaskForm, ChangerReferentForm, ChangePasswordForm
+from app.forms import RequestResetForm, ResetPasswordForm
 from app.models import Timesheet, Dossier, Client, Facture, User, Document, AttributionHistorique, CalendarEvent
 from app import app, db
 from datetime import datetime, timedelta, date
@@ -15,7 +16,12 @@ from wtforms import SelectField
 from sqlalchemy.orm import joinedload
 from flask_mail import Message
 from app import mail
-
+import re
+from sqlalchemy.exc import IntegrityError
+from decimal import Decimal, ROUND_HALF_UP
+from wtforms.validators import DataRequired, Optional, NumberRange
+from app.utils import generate_reset_token, verify_reset_token, send_reset_email, make_reset_token, reset_url_for
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 
 #from app import app
@@ -43,11 +49,11 @@ def index():
 
 
 @app.route('/dashboard') # Tu peux avoir les deux ou juste /dashboard
-#@login_required
+@login_required
 def dashboard():
     # KPI 1: Total Clients
   # Obtenir la liste des rôles autorisés à tout voir
-    roles_autorises = ['admin', 'managing-partner', 'partner', 'managing-associate']
+    roles_autorises = ['admin', 'managing-partner', 'partner', 'managing-associate', 'comptabilité', 'qualité']
 
     # KPI 1: Total Clients
     if current_user.role in roles_autorises:
@@ -164,7 +170,7 @@ def clients():
         return redirect(url_for('clients'))
 
     clients = Client.query.filter_by(supprimé=False).all()
-    if current_user.role in ['admin', 'managing-partner', 'partner','managing-associate']:
+    if current_user.role in ['admin', 'managing-partner', 'partner','managing-associate', 'comptabilité', 'qualité']:
         clients = Client.query.filter_by(supprimé=False).all()
     else:
         clients = Client.query.filter_by(supprimé=False, user_id=current_user.id).all()
@@ -198,9 +204,27 @@ def supprimer_client(client_id):
     flash('Client supprimé avec succès.', 'warning')
     return redirect(url_for('clients'))
 
+NUMERO_RE = re.compile(r'^(\d{1,3}(?:\.\d{3})*)/(\d{2})$')
+
+def parse_numero_to_components(numero: str):
+    m = NUMERO_RE.match(numero)
+    if not m:
+        raise ValueError("Format invalide")
+    seq_str, yy = m.groups()
+    sequence = int(seq_str.replace('.', ''))
+    annee = 2000 + int(yy)  # "25" -> 2025
+    return annee, sequence
+
+def compute_numero(sequence: int, annee: int) -> str:
+    """
+    (sequence=13897, annee=2025) -> '13.897/25'
+    """
+    seq_str = f"{sequence:,}".replace(",", ".")
+    yy = str(annee % 100).zfill(2)
+    return f"{seq_str}/{yy}"
 
 #ajout dossiers
-ADMIN_ROLES = {"admin", "managing-partner", "partner", "managing-associate"}
+ADMIN_ROLES = {"admin", "managing-partner", "partner", "managing-associate", "comptabilité", "qualité"}
 @app.route('/dossiers', methods=['GET', 'POST'])
 @login_required
 def dossiers():
@@ -215,36 +239,92 @@ def dossiers():
     # Utilisateurs pour attribution
     utilisateurs_possibles = User.query.filter(
         User.supprimé == False,
-        User.role.in_(['admin','managing-partner', 'partner', 'managing-associate', 'juriste', 'avocat'])
+        User.role.in_(['admin','managing-partner', 'partner', 'managing-associate', 'juriste', 'avocat', 'comptabilité', 'qualité', 'clerc', 'secrétaire'])
     ).all()
     form.user_id.choices = [(u.id, u.nom) for u in utilisateurs_possibles]
-    
 
     # Pour changement de référent
     changer_form.nouveau_referent.choices = [(u.id, u.nom) for u in utilisateurs_possibles]
 
-    # Traitement formulaire ajout dossier
+    # Pré-remplir user_id à l'ouverture
     if request.method == "GET":
         form.user_id.default = current_user.id
-        form.process() 
+        form.process()
         print("📥 Données POST reçues :", request.form)
 
+    # --- Création d'un dossier (POST valide) ---
     if form.validate_on_submit():
         try:
             user_id = form.user_id.data or current_user.id
-            nouveau_dossier = Dossier(
-                nom=form.nom.data,
-                description=form.description.data,
-                date_ouverture=form.date_ouverture.data,
-                procedure=form.procedure.data,
-                statut=form.statut.data,
-                client_id=form.client_id.data,
-                user_id=user_id
-            )
-            db.session.add(nouveau_dossier)
-            db.session.commit()
-            flash("✅ Dossier ajouté avec succès.", "success")
-            return redirect(url_for('dossiers'))
+
+            # 1) Numéro saisi manuellement ?
+            numero_input = ""
+            if hasattr(form, "numero") and form.numero.data:
+                numero_input = form.numero.data.strip()
+
+            if numero_input:
+                # Valider & normaliser
+                annee, sequence = parse_numero_to_components(numero_input)
+                numero_norm = compute_numero(sequence, annee)
+
+                nouveau_dossier = Dossier(
+                    nom=form.nom.data,
+                    description=form.description.data,
+                    date_ouverture=form.date_ouverture.data,
+                    procedure=form.procedure.data,
+                    statut=form.statut.data,
+                    client_id=form.client_id.data,
+                    user_id=user_id,
+                    # champs liés au numéro
+                    annee=annee,
+                    sequence=sequence,
+                    numero=numero_norm
+                )
+                db.session.add(nouveau_dossier)
+                try:
+                    db.session.commit()
+                    flash("✅ Dossier ajouté avec succès.", "success")
+                    return redirect(url_for('dossiers'))
+                except IntegrityError:
+                    db.session.rollback()
+                    flash("❌ Numéro de dossier déjà utilisé. Merci d’en saisir un autre.", "danger")
+                    # On retombe plus bas pour ré-afficher la page avec le formulaire et les erreurs
+            else:
+                # 2) Génération automatique (année courante, incrément de séquence)
+                annee = datetime.now().year
+                MAX_RETRY = 5
+                for _ in range(MAX_RETRY):
+                    max_seq = db.session.query(func.max(Dossier.sequence)).filter_by(annee=annee).scalar() or 0
+                    sequence = max_seq + 1
+                    numero_gen = compute_numero(sequence, annee)
+
+                    nouveau_dossier = Dossier(
+                        nom=form.nom.data,
+                        description=form.description.data,
+                        date_ouverture=form.date_ouverture.data,
+                        procedure=form.procedure.data,
+                        statut=form.statut.data,
+                        client_id=form.client_id.data,
+                        user_id=user_id,
+                        annee=annee,
+                        sequence=sequence,
+                        numero=numero_gen
+                    )
+                    db.session.add(nouveau_dossier)
+                    try:
+                        db.session.commit()
+                        flash("✅ Dossier ajouté avec succès.", "success")
+                        return redirect(url_for('dossiers'))
+                    except IntegrityError:
+                        # collision de concurrence (rare) → on retente
+                        db.session.rollback()
+                        continue
+
+                flash("❌ Impossible de générer un numéro unique. Réessayez.", "danger")
+
+        except ValueError as ve:
+            db.session.rollback()
+            flash(f"❌ {str(ve)}", "danger")
         except Exception as e:
             db.session.rollback()
             print("❌ Erreur lors de l'ajout du dossier :", e)
@@ -253,33 +333,28 @@ def dossiers():
         if request.method == "POST":
             print("⚠️ Erreurs formulaire :", form.errors)
 
-    # Liste des dossiers selon les droits
+    # --- Liste des dossiers selon les droits ---
     client_id = request.args.get('client_id', type=int)
     query = Dossier.query.filter_by(supprimé=False)
 
-    if current_user.role not in ['admin', 'managing-partner', 'partner', 'managing-associate']:
+    if current_user.role not in ['admin', 'managing-partner', 'partner', 'managing-associate', 'comptabilité', 'qualité']:
         query = query.filter_by(user_id=current_user.id)
 
     if client_id:
         query = query.filter_by(client_id=client_id)
 
-    dossiers = query.all()
-    # events = []
-    # for d in dossiers:
-    #     if d.date_ouverture:
-    #         events.append({
-    #             "title":       d.nom,
-    #             "start":       d.date_ouverture.strftime("%Y-%m-%d"),
-    #             "description": d.description or ""
-    #         })
-    return render_template('dossiers.html',
-                           form=form,
-                           delete_form=delete_form,
-                           dossiers=dossiers,
-                           clients=clients,
-                           users=utilisateurs_possibles,
-                           changer_form=changer_form
-                          )
+    dossiers_list = query.order_by(Dossier.id.desc()).all()
+
+    return render_template(
+        'dossiers.html',
+        form=form,
+        delete_form=delete_form,
+        dossiers=dossiers_list,
+        clients=clients,
+        users=utilisateurs_possibles,
+        changer_form=changer_form
+    )
+
 
 #modifier dossier
 @app.route('/dossiers/modifier/<int:dossier_id>', methods=['GET', 'POST'])
@@ -289,7 +364,7 @@ def modifier_dossier(dossier_id):
 
     form.client_id.choices = [(client.id, f"{client.societe}") for client in Client.query.filter_by(supprimé=False).all()]
     form.user_id.choices = [(user.id, user.nom) for user in User.query.filter(
-        User.role.in_(['admin','managing-partner', 'partner', 'managing-associate', 'juriste', 'avocat']),
+        User.role.in_(['admin','managing-partner', 'partner', 'managing-associate', 'juriste', 'avocat', 'comptabilité', 'qualité', 'clerc', 'secrétaire']),
         User.supprimé == False
     ).all()]
 #     utilisateurs = User.query.filter(
@@ -348,7 +423,7 @@ def factures():
     delete_form = DeleteForm()
     factures = Facture.query.filter_by(supprimé=False).all()
     facture_data = []
-    if current_user.role in ['admin', 'managing-partner', 'partner','managing-associate']:
+    if current_user.role in ['admin', 'managing-partner', 'partner','managing-associate', 'comptabilité', 'qualité']:
         factures = Facture.query.all()
     else:
         # Récupère les dossiers qui lui sont attribués
@@ -409,90 +484,174 @@ def supprimer_facture(id):
 
 import sys
 
+def _to_decimal(x):
+    return Decimal(str(x)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+def _calc_ttc(montant_ht, tva_applicable):
+    if tva_applicable == 'oui':
+        # adapte le taux (ex 18% ci-dessous)
+        return (montant_ht * Decimal('1.18')).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return montant_ht
+
+# ----------------------------
+# LISTE + CREATION TIMESHEETS
+# ----------------------------
 @app.route('/timesheets', methods=['GET', 'POST'])
 @login_required
 def timesheets():
     form = TimesheetForm()
 
-    # Associer chaque dossier à son client dans la liste déroulante
-    dossiers = Dossier.query.join(Client).filter(Dossier.supprimé == False, Client.supprimé == False).order_by(Client.societe, Dossier.nom).all()
-    form.dossier_id.choices = [(d.id, f"{d.client.societe} - {d.nom}") for d in dossiers]
+    # Choix dossiers (clients non supprimés + dossiers non supprimés)
+    form.dossier_id.choices = [
+        (d.id, f"{d.client.societe} - {d.nom}")
+        for d in Dossier.query.join(Client)
+              .filter(Dossier.supprimé == False, Client.supprimé == False)
+              .order_by(Client.societe, Dossier.nom)
+              .all()
+    ]
 
     if form.validate_on_submit():
-        dt_debut = datetime.combine(form.date.data, form.heure_debut.data)
-        dt_fin = datetime.combine(form.date.data, form.heure_fin.data)
-        duree_heures = round((dt_fin - dt_debut).total_seconds() / 3600, 2)
+        tva_bool = (form.tva_applicable.data == 'oui')
+        tva_rate = 0.18
 
-        taux_horaire = float(form.taux_horaire.data)
-        tva = form.tva_applicable.data == 'oui'
-        montant_ht = round(duree_heures * taux_horaire, 2)
-        montant_ttc = round(montant_ht * 1.18, 2) if tva else montant_ht
+        if form.type_facturation.data == 'horaire':
+            dt_debut = datetime.combine(form.date.data, form.heure_debut.data)
+            dt_fin   = datetime.combine(form.date.data, form.heure_fin.data)
+            if dt_fin < dt_debut:
+                dt_fin += timedelta(days=1)  # passage minuit
+            duree_h = round((dt_fin - dt_debut).total_seconds() / 3600.0, 2)
 
-        ts = Timesheet(
-            date=form.date.data,
-            heure_debut=form.heure_debut.data,
-            heure_fin=form.heure_fin.data,
-            description=form.description.data,
-            devise='XOF',
-            taux_horaire=taux_horaire,
-            tva_applicable=tva,
-            montant_ht=montant_ht,
-            montant_ttc=montant_ttc,
-            statut=form.statut.data,
-            duree_heures=duree_heures,
-            dossier_id=form.dossier_id.data,
-            user_id=current_user.id
-        )
+            ht  = round(duree_h * float(form.taux_horaire.data), 2)
+            ttc = round(ht * (1 + tva_rate), 2) if tva_bool else ht
+
+            ts = Timesheet(
+                date=form.date.data,
+                type_facturation='horaire',
+                heure_debut=form.heure_debut.data,
+                heure_fin=form.heure_fin.data,
+                duree_heures=duree_h,
+                taux_horaire=form.taux_horaire.data,
+                montant_forfait=None,
+                tva_applicable=tva_bool,
+                montant_ht=ht,
+                montant_ttc=ttc,
+                statut=form.statut.data,              # ✅ AJOUTÉ
+                devise=(form.devise.data or "XOF").upper(),
+                description=form.description.data or '',
+                dossier_id=form.dossier_id.data,
+                user_id=current_user.id
+            )
+
+        else:  # forfait
+            ht  = round(float(form.montant_forfait.data), 2)
+            ttc = round(ht * (1 + tva_rate), 2) if tva_bool else ht
+
+            ts = Timesheet(
+                date=form.date.data,
+                type_facturation='forfait',
+                heure_debut=None,
+                heure_fin=None,
+                duree_heures=None,
+                taux_horaire=None,
+                montant_forfait=form.montant_forfait.data,
+                tva_applicable=tva_bool,
+                montant_ht=ht,
+                montant_ttc=ttc,
+                statut=form.statut.data,
+                devise=(form.devise.data or "XOF").upper(),
+                description=form.description.data or '',
+                dossier_id=form.dossier_id.data,
+                user_id=current_user.id
+            )
+
         db.session.add(ts)
         db.session.commit()
-        flash("✅ Timesheet ajouté avec succès.", "success")
-        return redirect(url_for("timesheets"))
-    elif request.method == 'POST':
-        flash("❌ Veuillez corriger les erreurs dans le formulaire.", "danger")
-        print(form.errors)
+        flash("Timesheet enregistré avec succès.", "success")
+        return redirect(url_for('timesheets'))
+
+    if form.errors:
+        current_app.logger.info(form.errors)
 
     # Affichage filtré selon rôle
-    if current_user.role in ['admin', 'managing-partner', 'partner','managing-associate']:
-        timesheets = Timesheet.query.filter_by(supprimé=False).all()
+    if current_user.role in ['admin', 'managing-partner', 'partner', 'managing-associate', 'comptabilité', 'qualité']:
+        timesheets_list = Timesheet.query.filter_by(supprimé=False)\
+                            .order_by(Timesheet.date.desc(), Timesheet.id.desc()).all()
     else:
-        timesheets = Timesheet.query.filter_by(user_id=current_user.id, supprimé=False).all()
+        timesheets_list = Timesheet.query.filter_by(user_id=current_user.id, supprimé=False)\
+                            .order_by(Timesheet.date.desc(), Timesheet.id.desc()).all()
 
-    return render_template("timesheets.html", form=form, timesheets=timesheets, delete_form=DeleteForm())
+    return render_template("timesheets.html", form=form, timesheets=timesheets_list, delete_form=DeleteForm())
 
 
-
+# ----------------------------
+# EDITION TIMESHEET
+# ----------------------------
 @app.route('/edit_timesheet/<int:id>', methods=['GET', 'POST'])
+@login_required
 def edit_timesheet(id):
     timesheet = Timesheet.query.get_or_404(id)
     form = TimesheetForm(obj=timesheet)
-    form.tva_applicable.data = 'oui' if timesheet.tva_applicable else 'non'
-    form.dossier_id.choices = [(d.id, d.nom) for d in Dossier.query.all()]
+
+    # Choix dossiers
+    form.dossier_id.choices = [
+        (d.id, f"{d.client.societe} - {d.nom}")
+        for d in Dossier.query.join(Client)
+              .filter(Dossier.supprimé == False, Client.supprimé == False)
+              .order_by(Client.societe, Dossier.nom)
+              .all()
+    ]
+
+    # Pré-remplissages/normalisations GET
+    if request.method == 'GET':
+        form.tva_applicable.data = 'oui' if timesheet.tva_applicable else 'non'
+        form.type_facturation.data = timesheet.type_facturation or 'horaire'
+        form.devise.data = (timesheet.devise or "XOF").upper()
+        if not timesheet.statut:
+            form.statut.data = 'En cours'  # garde-fou
+        if timesheet.type_facturation == 'forfait':
+            form.montant_forfait.data = timesheet.montant_forfait
 
     if form.validate_on_submit():
-        dt_debut = datetime.combine(form.date.data, form.heure_debut.data)
-        dt_fin = datetime.combine(form.date.data, form.heure_fin.data)
-        duree_heures = round((dt_fin - dt_debut).total_seconds() / 3600, 2)
+        tva_rate = 0.18
+        devise = (form.devise.data or "XOF").upper()
+        tva_bool = (form.tva_applicable.data in ("oui", "1", True, "True"))
+        type_fact = form.type_facturation.data or 'horaire'
 
-        taux_horaire = float(form.taux_horaire.data)
-        tva = form.tva_applicable.data == 'oui'
-        montant_ht = round(duree_heures * taux_horaire, 2)
-        montant_ttc = round(montant_ht * 1.2, 2) if tva else montant_ht
+        timesheet.date = form.date.data
+        timesheet.description = form.description.data
+        timesheet.statut = form.statut.data
+        timesheet.devise = devise
+        timesheet.dossier_id = form.dossier_id.data
+        timesheet.tva_applicable = tva_bool
 
-        form.populate_obj(timesheet)
-        timesheet.duree_heures = duree_heures
-        timesheet.taux_horaire = taux_horaire
-        timesheet.montant_ht = montant_ht
-        timesheet.montant_ttc = montant_ttc
-        timesheet.tva_applicable = tva
+        if type_fact == 'forfait':
+            timesheet.type_facturation = 'forfait'
+            timesheet.montant_forfait = float(form.montant_forfait.data or 0)
+            timesheet.heure_debut = None
+            timesheet.heure_fin = None
+            timesheet.duree_heures = None
+            timesheet.taux_horaire = None
+            timesheet.montant_ht = round(timesheet.montant_forfait, 2)
+            timesheet.montant_ttc = round(timesheet.montant_ht * (1 + tva_rate), 2) if tva_bool else timesheet.montant_ht
+
+        else:
+            timesheet.type_facturation = 'horaire'
+            timesheet.heure_debut = form.heure_debut.data
+            timesheet.heure_fin = form.heure_fin.data
+            dt_debut = datetime.combine(form.date.data, form.heure_debut.data)
+            dt_fin = datetime.combine(form.date.data, form.heure_fin.data)
+            if dt_fin < dt_debut:
+                dt_fin += timedelta(days=1)  # ✅ passage minuit aussi en édition
+            timesheet.duree_heures = round((dt_fin - dt_debut).total_seconds() / 3600, 2)
+            timesheet.taux_horaire = float(form.taux_horaire.data or 0)
+            timesheet.montant_ht = round(timesheet.duree_heures * timesheet.taux_horaire, 2)
+            timesheet.montant_ttc = round(timesheet.montant_ht * (1 + tva_rate), 2) if tva_bool else timesheet.montant_ht
 
         db.session.commit()
         flash("Timesheet modifié avec succès ✅", "success")
-    
         return redirect(url_for('timesheets'))
-    else:
-      print("❌ Formulaire invalide :", form.errors)
-    return render_template('edit_timesheet.html', form=form, timesheet=timesheet)
 
+    return render_template('edit_timesheet.html', form=form, timesheet=timesheet)
 #supprimer un timesheet
 @app.route('/timesheet/delete/<int:id>', methods=['POST'])
 def delete_timesheet(id):
@@ -519,14 +678,14 @@ def login():
     return render_template('login.html', form=form)
 
 # Vous aurez aussi besoin de routes pour 'forgot_password' et 'register' si vous incluez les liens.
-@app.route('/forgot_password')
-def forgot_password():
-    flash("La page de réinitialisation de mot de passe n'est pas encore implémentée.", "info")
-    return redirect(url_for('login')) # Redirige vers la page de connexion pour l'instant
+# @app.route('/forgot_password')
+# def forgot_password():
+#     flash("La page de réinitialisation de mot de passe n'est pas encore implémentée.", "info")
+#     return redirect(url_for('login')) # Redirige vers la page de connexion pour l'instant
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate']:
+    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate','comptabilité', 'qualité']:
         flash("⛔ Accès non autorisé.", "danger")
         return redirect(url_for('dashboard'))
     form = RegistrationForm()
@@ -559,7 +718,7 @@ def logout():
 @app.route('/ajouter_utilisateur', methods=['GET', 'POST'])
 @login_required
 def ajouter_utilisateur():
-    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate']:
+    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate','comptabilité', 'qualité']:
         flash("Vous n'avez pas l'autorisation d'accéder à cette page.", "danger")
         return redirect(url_for('index'))
 
@@ -633,7 +792,7 @@ def generer_facture():
     query = Timesheet.query.join(Dossier).filter(Timesheet.facture == None)
 
     # Seuls les associés/admins peuvent filtrer par utilisateur
-    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate']:
+    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate','comptabilité', 'qualité']:
         query = query.filter(Timesheet.user_id == current_user.id)
     elif utilisateur_id:
         query = query.filter(Timesheet.user_id == utilisateur_id)
@@ -646,7 +805,7 @@ def generer_facture():
     
     devise = request.args.get('devise', 'FCFA')
     timesheets = query.order_by(Timesheet.date).all()
-    utilisateurs = User.query.all() if current_user.role in ['admin', 'managing-partner', 'partner','managing-associate'] else []
+    utilisateurs = User.query.all() if current_user.role in ['admin', 'managing-partner', 'partner','managing-associate', 'comptabilité', 'qualité'] else []
 
     return render_template(
         'generer_facture.html',
@@ -770,7 +929,7 @@ def supprimer_document(id):
 @login_required
 def utilisateurs():
     print(current_user)
-    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate']:
+    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate','comptabilité', 'qualité']:
         flash("Accès refusé. Page réservée aux administrateurs.", "danger")
         return redirect(url_for('index'))
 
@@ -783,7 +942,7 @@ def utilisateurs():
 @app.route('/utilisateur/modifier/<int:id>', methods=['GET', 'POST'])
 @login_required
 def modifier_utilisateur(id):
-    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate']:
+    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate', 'comptabilité', 'qualité']:
         flash("Accès refusé.", "danger")
         return redirect(url_for('dashboard'))
 
@@ -803,7 +962,7 @@ def modifier_utilisateur(id):
 @app.route('/utilisateur/supprimer/<int:id>', methods=['POST', 'GET'])
 @login_required
 def supprimer_utilisateur(id):
-    if current_user.role not in ['admin', 'associé', 'managing-partner']:
+    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate', 'comptabilité', 'qualité']:
         flash("Accès refusé.", "danger")
         return redirect(url_for('dashboard'))
 
@@ -964,9 +1123,9 @@ def changer_mdp():
 
 from flask import send_from_directory
 
-@app.route('/robots.txt')
-def robots_txt():
-    return send_from_directory('static', 'robots.txt')
+# @app.route('/robots.txt')
+# def robots_txt():
+#     return send_from_directory('static', 'robots.txt')
 
 
 #notifications 
@@ -974,7 +1133,7 @@ def create_notification(*, user_id:int, title:str, message:str, url:str|None=Non
     # notifications in-app désactivées volontairement
     return
 
-ATTRIBUTORS = {'admin','managing-partner','partner','managing-associate'}
+ATTRIBUTORS = {'admin','managing-partner','partner','managing-associate',}
 ASSIGNEE_ROLES = {'avocat','juriste','associate','managing-associate'}  # qui peut recevoir un dossier
 
 
@@ -1079,3 +1238,84 @@ def roles_required(*roles):
             return f(*a, **kw)
         return wrapper
     return deco
+
+#réinitialisation du mot de passe
+# def send_reset_email(user, token):
+#     # Si tu as un SMTP/Flask-Mail, envoie un vrai mail ici.
+#     # En dev, on affiche juste le lien pour cliquer.
+#     reset_url = url_for('reset_password', token=token, _external=True)
+#     app.logger.warning("🔐 Lien de réinitialisation (DEV) : %s", reset_url)
+#     flash("Un lien de réinitialisation a été généré. (En dev: regarde les logs / console)", "info")
+#     # Optionnel: pour debug, tu peux aussi l’afficher à l’écran:
+#     flash(reset_url, "warning")
+
+# @app.route('/password/forgot', methods=['GET', 'POST'])
+# def forgot_password():
+#     if current_user.is_authenticated:
+#         return redirect(url_for('dashboard'))
+
+#     form = RequestResetForm()
+#     if form.validate_on_submit():
+#         email = form.email.data.strip().lower()
+#         user = User.query.filter_by(email=email).first()
+
+#         # Toujours répondre pareil (ne pas divulguer si l'email existe)
+#         if user:
+#             token = generate_reset_token(user.email)
+#             try:
+#                 send_reset_email(user, token)
+#             except Exception as e:
+#                 app.logger.exception("Erreur envoi email reset: %s", e)
+#                 # On ne révèle rien à l’utilisateur pour sécurité
+
+#         flash("Si un compte existe avec cet email, un lien a été envoyé.", "success")
+#         return redirect(url_for('login'))
+
+#     return render_template('auth/forgot_password.html', form=form)
+@app.route('/password/forgot', methods=['GET', 'POST'])
+def forgot_password():
+    form = RequestResetForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=form.email.data.strip()).first()
+        # Toujours dire "si l'email existe, on envoie", pour ne pas leak les comptes.
+        if user:
+            token = make_reset_token(user)
+            reset_link = reset_url_for(token)
+            try:
+                send_reset_email(user, token)  # cette fonction doit utiliser reset_url_for(token)
+                current_app.logger.info("🔗 RESET URL sent: %s", reset_link)
+            except Exception as e:
+                current_app.logger.error("Erreur envoi email reset: %s", e, exc_info=True)
+        flash("Si cet e-mail existe, un lien de réinitialisation a été envoyé.", "info")
+        return redirect(url_for('login'))
+    return render_template('auth/forgot_password.html', form=form)
+
+
+serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
+
+@app.route('/password/reset/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    data = verify_reset_token(token, max_age=3600)
+    if data is None:
+        flash("Lien de réinitialisation invalide.", "danger")
+        return redirect(url_for('forgot_password'))
+    if data == "expired":
+        flash("Lien de réinitialisation expiré. Merci de refaire la demande.", "warning")
+        return redirect(url_for('forgot_password'))
+
+    user = User.query.filter_by(id=data.get("uid"), email=data.get("e")).first()
+    if not user:
+        flash("Lien de réinitialisation invalide.", "danger")
+        return redirect(url_for('forgot_password'))
+
+    form = ResetPasswordForm()
+    if form.validate_on_submit():
+        user.set_password(form.password.data)
+        db.session.commit()
+        flash("Votre mot de passe a été réinitialisé avec succès.", "success")
+        return redirect(url_for('login'))
+    return render_template('auth/reset_password.html', form=form)
+
+
+
+

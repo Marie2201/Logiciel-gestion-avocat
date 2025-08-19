@@ -19,6 +19,9 @@ class Client(db.Model):
 
 class Dossier(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    annee = db.Column(db.Integer, nullable=False) 
+    sequence = db.Column(db.Integer, nullable=False)
+    numero = db.Column(db.String(20), nullable=False, unique=True) 
     nom = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=True)
     date_ouverture = db.Column(db.Date, nullable=False)
@@ -33,6 +36,15 @@ class Dossier(db.Model):
     #user = db.relationship('User', backref='dossiers_attribués')
     supprimé = db.Column(Boolean, default=False)
 
+
+    __table_args__ = (
+        db.UniqueConstraint('annee', 'sequence', name='uq_dossier_annee_sequence'),
+    )
+    def compute_numero(self):
+        # "13.897/25" → points tous les 3 chiffres + "/YY"
+        seq = f"{self.sequence:,}".replace(",", ".")   # groupement par milliers avec des points
+        yy = str(self.annee % 100).zfill(2)
+        return f"{seq}/{yy}"
     #client = db.relationship('Client', backref=db.backref('dossiers', lazy=True))
 
     # def __repr__(self):
@@ -54,7 +66,8 @@ class Timesheet(db.Model):
     devise = db.Column(db.String(3), default='XOF')
     tva_applicable = db.Column(db.Boolean, default=True)  # True = oui, False = non
 
-
+    type_facturation = db.Column(db.String(10), nullable=False, default='horaire')  # 'horaire' | 'forfait'
+    montant_forfait = db.Column(db.Numeric(10, 2), nullable=True)
     montant_ht = db.Column(db.Float)
     montant_ttc = db.Column(db.Float)
 

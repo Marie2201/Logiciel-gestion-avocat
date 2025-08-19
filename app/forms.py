@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, TextAreaField, SelectField, DateField, TimeField, SubmitField, DecimalField, PasswordField, BooleanField, HiddenField
-from wtforms.validators import DataRequired, Optional, Email, NumberRange, Length, EqualTo
+from wtforms.validators import DataRequired, Optional, Email, NumberRange, Length, EqualTo, Regexp
 from wtforms.fields import EmailField
 from wtforms_sqlalchemy.fields import QuerySelectField
 from datetime import date
@@ -8,20 +8,67 @@ from app.models import Dossier
 from flask_wtf.file import FileField, FileAllowed, FileRequired
 
 #formulaire timesheet
+STATUT_CHOICES = [
+    ('En cours',    'En cours'),
+    ('À facturer',  'À facturer'),
+    ('Facturée',    'Facturée'),
+    ('Payée',       'Payée'),
+    ('Annulée',     'Annulée'),
+]
+
 class TimesheetForm(FlaskForm):
     date = DateField('Date', format='%Y-%m-%d', validators=[DataRequired()])
-    heure_debut = TimeField('Heure de début', format='%H:%M', validators=[DataRequired()])
-    heure_fin = TimeField('Heure de fin', format='%H:%M', validators=[DataRequired()])
-    
-    description = TextAreaField('Description de la tâche', validators=[DataRequired()])
-    dossier_id = SelectField('Dossier', coerce=int)
-    #user_id = SelectField('Utilisateur', coerce=int)
-    statut = SelectField('Statut', choices=[('en cours', 'En cours'), ('facturée', 'Facturée')], validators=[DataRequired()])
-    #devise = SelectField("Devise", choices=[('EUR', '€ Euro'), ('XOF', 'FCFA')], validators=[DataRequired()])
-    taux_horaire = DecimalField("Taux horaire (FCFA)", validators=[DataRequired(), NumberRange(min=0)], places=2)
-    tva_applicable = SelectField('TVA applicable ?', choices=[('oui', 'Oui'), ('non', 'Non')])
+    type_facturation = SelectField(
+        'Type',
+        choices=[('horaire', 'À l’heure'), ('forfait', 'Forfait')],
+        validators=[DataRequired()],
+        default='horaire'
+    )
 
+    # HORAIRE (optionnels au niveau du Form ; imposés conditionnellement)
+    heure_debut   = TimeField('Heure début',  format='%H:%M', validators=[Optional()])
+    heure_fin     = TimeField('Heure fin',    format='%H:%M', validators=[Optional()])
+    taux_horaire  = DecimalField('Taux horaire', places=2, validators=[Optional(), NumberRange(min=0)])
+
+    # Statut (nouveau)
+    statut = SelectField('Statut', choices=STATUT_CHOICES,
+                         validators=[DataRequired()], default='En cours')
+
+    # FORFAIT (optionnel ici, imposé conditionnellement)
+    montant_forfait = DecimalField('Montant forfait', places=2, validators=[Optional(), NumberRange(min=0)])
+
+    tva_applicable = SelectField('TVA', choices=[('non', 'Non'), ('oui', 'Oui')],
+                                 validators=[DataRequired()], default='non')
+    devise = SelectField('Devise',
+                         choices=[('XOF','FCFA'),('EUR','EUR'),('USD','USD')],
+                         validators=[DataRequired()], default='XOF')
+
+    description = TextAreaField('Description', validators=[Optional()])
+    dossier_id = SelectField('Dossier', coerce=int, validators=[DataRequired()])
     submit = SubmitField('Enregistrer')
+
+    def validate(self, extra_validators=None):
+        base_ok = super().validate(extra_validators)
+        ok = True
+
+        if self.type_facturation.data == 'horaire':
+            if not self.heure_debut.data:
+                self.heure_debut.errors.append('Requis pour la facturation horaire.')
+                ok = False
+            if not self.heure_fin.data:
+                self.heure_fin.errors.append('Requis pour la facturation horaire.')
+                ok = False
+            if self.taux_horaire.data is None:
+                self.taux_horaire.errors.append('Requis pour la facturation horaire.')
+                ok = False
+
+        elif self.type_facturation.data == 'forfait':
+            if self.montant_forfait.data is None:
+                self.montant_forfait.errors.append('Requis pour la facturation au forfait.')
+                ok = False
+
+        return base_ok and ok
+
 
 #formulaire client
 class ClientForm(FlaskForm):
@@ -32,7 +79,15 @@ class ClientForm(FlaskForm):
     submit = SubmitField("Enregistrer")
 
 #formulaire Dossiers
+NUMERO_REGEX = r'^\d{1,3}(?:\.\d{3})*/\d{2}$'
 class DossierForm(FlaskForm):
+    numero = StringField(
+        'ID Dossier',
+        validators=[
+            Optional(),
+            Regexp(NUMERO_REGEX, message="Format attendu : 13.897/25")
+        ]
+    )
     nom = StringField("Nature du dossier", validators=[DataRequired()])
     description = TextAreaField('Description')
     date_ouverture = DateField("Date d'ouverture", validators=[DataRequired()])
@@ -83,7 +138,12 @@ class AjoutUtilisateurForm(FlaskForm):
         ('managing-associate', 'Managing-Associate'),
         ('avocat', 'Avocat'),
         ('juriste', 'Juriste'),
-        ('admin', 'Admin')
+        ('admin', 'Admin'),
+        ('clerc', 'Clerc'),
+        ('secrétaire', 'Secrétaire'),
+        ('comptabilité', 'Comptabilité'),
+        ('qualité', 'Qualité')
+
     ], validators=[DataRequired()])
     password = PasswordField("Mot de passe", validators=[DataRequired(), Length(min=6)])
     submit = SubmitField("Ajouter l'utilisateur")
@@ -127,7 +187,7 @@ class ChangerReferentForm(FlaskForm):
     nouveau_referent = SelectField('Nouveau référent', coerce=int, validators=[DataRequired()])
     submit = SubmitField('Enregistrer')
 
-
+#changement de mot de passe
 class ChangePasswordForm(FlaskForm):
     ancien_password = PasswordField("Mot de passe actuel", validators=[DataRequired()])
     nouveau_password = PasswordField("Nouveau mot de passe", validators=[
@@ -139,6 +199,22 @@ class ChangePasswordForm(FlaskForm):
         EqualTo('nouveau_password', message="Les mots de passe ne correspondent pas")
     ])
     submit = SubmitField("Modifier le mot de passe")
+
+#envoi lien de réinitiliation
+class RequestResetForm(FlaskForm):
+    email = StringField("Email", validators=[DataRequired(), Email()])
+    submit = SubmitField("Envoyer le lien de réinitialisation")
+
+class ResetPasswordForm(FlaskForm):
+    password = PasswordField(
+        "Nouveau mot de passe",
+        validators=[DataRequired(message="Champ requis"), Length(min=8, message="8 caractères minimum")]
+    )
+    confirm = PasswordField(
+        "Confirmer le mot de passe",
+        validators=[DataRequired(message="Champ requis"), EqualTo("password", message="Les mots de passe ne correspondent pas")]
+    )
+    submit = SubmitField("Réinitialiser")
 
 
 class DummyForm(FlaskForm):

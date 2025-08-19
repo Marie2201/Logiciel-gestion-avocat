@@ -1,48 +1,106 @@
 {% extends "base.html" %}
+
 {% block content %}
-<div class="container mt-4 slide-in-top"></div>
+<div class="container mt-4 slide-in-top">
+  <h2 class="text-primary">✏️ Modifier le Timesheet</h2>
 
-    <h2 class="text-primary">✏️ Modifier le Timesheet</h2>
-    <form method="POST">
-        {{ form.hidden_tag() }}
-        <div class="row g-3">
-            <div class="col-md-4">
-                {{ form.date.label }}
-                {{ form.date(class="form-control") }}
-            </div>
+  <form method="POST">
+    {{ form.hidden_tag() }}
+    <div class="row g-3">
 
-            <div class="col-md-4">
-                {{ form.heure_debut.label }}
-                {{ form.heure_debut(class="form-control") }}
-            </div>
+      {# Type de facturation #}
+      <div class="col-md-4">
+        {{ form.type_facturation.label(class="form-label") }}
+        {{ form.type_facturation(class="form-select", id="type_facturation") }}
+      </div>
 
-            <div class="col-md-4">
-                {{ form.heure_fin.label }}
-                {{ form.heure_fin(class="form-control") }}
-            </div>
+      {# Montant forfait (visible si "forfait") #}
+      <div class="col-md-4 row-forfait">
+        {{ form.montant_forfait.label(class="form-label") }}
+        {{ form.montant_forfait(class="form-control", id="montant_forfait") }}
+      </div>
 
-            <div class="col-md-6">
-                {{ form.taux_horaire.label }}
-                {{ form.taux_horaire(class="form-control") }}
-            </div>
+      {# Date #}
+      <div class="col-md-4">
+        {{ form.date.label(class="form-label") }}
+        {{ form.date(class="form-control") }}
+      </div>
 
-            <div class="col-md-6">
-                {{ form.dossier_id.label }}
-                {{ form.dossier_id(class="form-select") }}
-            </div>
+      {# Champs horaires (visibles si "horaire") #}
+      <div class="col-md-4 row-horaire">
+        {{ form.heure_debut.label(class="form-label") }}
+        {{ form.heure_debut(class="form-control", id="heure_debut") }}
+      </div>
 
-            <div class="col-md-6">
-                {{ form.statut.label }}
-                {{ form.statut(class="form-select") }}
-            </div>
+      <div class="col-md-4 row-horaire">
+        {{ form.heure_fin.label(class="form-label") }}
+        {{ form.heure_fin(class="form-control", id="heure_fin") }}
+      </div>
 
-            <div class="col-md-12">
-                {{ form.description.label }}
-                {{ form.description(class="form-control", rows="2") }}
-            </div>
+      <div class="col-md-4 row-horaire">
+        {{ form.taux_horaire.label(class="form-label") }}
+        {{ form.taux_horaire(class="form-control", id="taux_horaire") }}
+      </div>
 
-            <button type="submit" class="btn btn-primary">Enregistrer les modifications</button>
+      {# Dossier #}
+      <div class="col-md-6">
+        {{ form.dossier_id.label(class="form-label") }}
+        {{ form.dossier_id(class="form-select") }}
+      </div>
+
+      {# TVA #}
+      <div class="col-md-3">
+        {{ form.tva_applicable.label(class="form-label") }}
+        {{ form.tva_applicable(class="form-select", id="tva_applicable") }}
+      </div>
+
+      {# Statut #}
+      <div class="col-md-3">
+        {{ form.statut.label(class="form-label") }}
+        {{ form.statut(class="form-select") }}
+      </div>
+
+      {# Description #}
+      <div class="col-md-12">
+        {{ form.description.label(class="form-label") }}
+        {{ form.description(class="form-control", rows="2") }}
+      </div>
+
+      <div class="col-12 d-flex gap-2 mt-2">
+        <button type="submit" class="btn btn-primary">Enregistrer les modifications</button>
         <a href="{{ url_for('timesheets') }}" class="btn btn-secondary">Annuler</a>
-    </form>
+      </div>
+    </div>
+  </form>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const typeSelect = document.getElementById('type_facturation');
+  const rowHoraire = document.querySelectorAll('.row-horaire');
+  const rowForfait = document.querySelectorAll('.row-forfait');
+  const heureDebut = document.getElementById('heure_debut');
+  const heureFin   = document.getElementById('heure_fin');
+  const tauxHoraire= document.getElementById('taux_horaire');
+  const montantForfait = document.getElementById('montant_forfait');
+
+  function toggleFields() {
+    const isForfait = typeSelect && typeSelect.value === 'forfait';
+    rowHoraire.forEach(el => el.style.display = isForfait ? 'none' : '');
+    rowForfait.forEach(el => el.style.display = isForfait ? '' : 'none');
+
+    if (heureDebut) heureDebut.required = !isForfait;
+    if (heureFin)   heureFin.required   = !isForfait;
+    if (tauxHoraire)tauxHoraire.required= !isForfait;
+    if (montantForfait) montantForfait.required = isForfait;
+  }
+
+  if (typeSelect) {
+    typeSelect.addEventListener('change', toggleFields);
+    toggleFields(); // initialise selon la valeur fournie par la route
+  }
+});
+</script>
 {% endblock %}
