@@ -9,7 +9,7 @@
   </a>
 
   <form method="GET" class="row g-3 mb-4">
-    {% if current_user.role in ['admin', 'associé', 'managing-partner', 'partner', 'managing-associate'] %}
+    {% if current_user.role in ['admin', 'associé', 'managing-partner', 'partner', 'managing-associate', 'comptabilité', 'qualité'] %}
     <div class="col-md-4">
       <label for="utilisateur" class="form-label">Utilisateur</label>
       <select class="form-select" id="utilisateur" name="utilisateur_id">
@@ -32,14 +32,6 @@
       <input type="date" class="form-control" name="date_fin" value="{{ request.args.get('date_fin', '') }}">
     </div>
 
-    <div class="col-md-2">
-      <label for="devise" class="form-label">Devise d’affichage</label>
-      <select name="devise" id="devise" class="form-select">
-        <option value="EUR" {% if devise == 'EUR' %}selected{% endif %}>Euro (€)</option>
-        <option value="XOF" {% if devise == 'XOF' %}selected{% endif %}>Franc CFA (FCFA)</option>
-      </select>
-    </div>
-
     <div class="col-md-2 align-self-end">
       <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Filtrer</button>
     </div>
@@ -59,10 +51,10 @@
             <th>Utilisateur</th>
             <th>Montant HT</th>
             <th>Montant TTC</th>
+            <th>Devise</th>
           </tr>
         </thead>
         <tbody>
-          {% set RATE_EUR_XOF = 655.957 %}
           {% for ts in timesheets %}
           <tr>
             <td><input type="checkbox" name="timesheet_ids" value="{{ ts.id }}"></td>
@@ -71,39 +63,10 @@
             <td>{{ ts.dossier.nom }}</td>
             <td>{{ ts.user.nom }}</td>
 
-            {# ---- HT ---- #}
-            <td>
-              {% if devise == 'EUR' %}
-                {% if ts.devise in ['XOF', 'FCFA', None] %}
-                  {{ '{:,.2f}'.format(ts.montant_ht / RATE_EUR_XOF) }} €
-                {% else %}
-                  {{ '{:,.2f}'.format(ts.montant_ht) }} €
-                {% endif %}
-              {% else %}
-                {% if ts.devise == 'EUR' %}
-                  {{ '{:,.2f}'.format(ts.montant_ht * RATE_EUR_XOF) }} FCFA
-                {% else %}
-                  {{ '{:,.2f}'.format(ts.montant_ht) }} FCFA
-                {% endif %}
-              {% endif %}
-            </td>
-
-            {# ---- TTC ---- #}
-            <td>
-              {% if devise == 'EUR' %}
-                {% if ts.devise in ['XOF', 'FCFA', None] %}
-                  {{ '{:,.2f}'.format(ts.montant_ttc / RATE_EUR_XOF) }} €
-                {% else %}
-                  {{ '{:,.2f}'.format(ts.montant_ttc) }} €
-                {% endif %}
-              {% else %}
-                {% if ts.devise == 'EUR' %}
-                  {{ '{:,.2f}'.format(ts.montant_ttc * RATE_EUR_XOF) }} FCFA
-                {% else %}
-                  {{ '{:,.2f}'.format(ts.montant_ttc) }} FCFA
-                {% endif %}
-              {% endif %}
-            </td>
+            {# Affichage brut, sans conversion #}
+            <td>{{ '{:,.2f}'.format(ts.montant_ht or 0) }}</td>
+            <td>{{ '{:,.2f}'.format(ts.montant_ttc or 0) }}</td>
+            <td>{{ ts.devise or 'XOF' }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -111,7 +74,6 @@
     </div>
 
     <div class="mt-3 text-end">
-      <input type="hidden" name="devise" value="{{ devise }}"> {# poste 'EUR' ou 'XOF' #}
       <button type="submit" class="btn btn-success"><i class="bi bi-check-circle"></i> Générer la facture</button>
     </div>
   </form>
@@ -124,7 +86,6 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  // Cocher/décocher tout
   const checkAll = document.getElementById('checkAll');
   if (checkAll) {
     checkAll.addEventListener('change', () => {

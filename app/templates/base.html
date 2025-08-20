@@ -16,213 +16,105 @@
 
     <title>{% block title %}Myhouda{% endblock %}</title>
 
-    {# TOUS LES LIENS CSS VONT ICI DANS LE HEAD #}
-    {# 1. Bootstrap CSS #}
+    <!-- Bootstrap / Icons / DataTables CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    {# 2. Bootstrap Icons CSS #}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    {# 3. DataTables CSS #}
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
 
-    {# Ton CSS PERSONNALISÉ POUR LE TABLEAU DE BORD ET LE RESTE #}
-    {# Il est recommandé de le mettre dans un fichier .css séparé (ex: static/style.css) #}
-    {# Mais pour l'instant, on le met directement ici pour s'assurer qu'il est bien chargé #}
     <style>
-        body {
-            background-color: #f8f9fa;
-        }
+        body { background-color: #f8f9fa; }
+
+        /* Sidebar */
         .sidebar {
             height: 100vh;
             background-color: #343a40;
             padding: 1rem;
-            position: fixed; /* Rend la barre latérale fixe */
-            width: 16.666667%; /* Correspond à col-md-2 */
-            top: 0;
-            left: 0;
+            position: fixed;
+            width: 16.666667%; /* ~ col-md-2 */
+            top: 0; left: 0;
             z-index: 1000;
         }
         .sidebar a {
-            color: white;
-            display: block;
-            padding: 0.5rem;
-            text-decoration: none;
+            color: white; display: block; padding: 0.5rem; text-decoration: none;
             transition: background-color 0.2s;
         }
-        .sidebar a:hover {
-            background-color: #495057;
-        }
-        .main {
-            margin-left: 16.666667%; /* Déplace le contenu principal pour compenser la sidebar fixe */
-            padding: 2rem;
-        }
-        .dataTables_filter {
-            margin-bottom: 1rem !important;
-        }
-        #dossiersTable, #dossiersTable th, #dossiersTable td {
-            font-size: 0.85rem !important;
-        }
+        .sidebar a:hover { background-color: #495057; }
+
+        /* Main area: par défaut sans sidebar */
+        .main { margin-left: 0; padding: 2rem; }
+        /* Quand la sidebar est présente, on pousse le contenu */
+        .has-sidebar .main { margin-left: 16.666667%; }
+
+        .dataTables_filter { margin-bottom: 1rem !important; }
+        #dossiersTable, #dossiersTable th, #dossiersTable td,
         #timesheetsTable, #timesheetsTable th, #timesheetsTable td {
             font-size: 0.85rem !important;
         }
-        #flash-messages {
-            margin-bottom: 1.5rem;
-        }
+        #flash-messages { margin-bottom: 1.5rem; }
 
-        /* Styles spécifiques au tableau de bord (copiés de ma réponse précédente) */
-        .dashboard-card {
-            border: none;
-            border-radius: 1rem;
-            transition: all 0.3s ease;
-            overflow: hidden;
-            position: relative; /* Pour positionner l'icône */
-        }
-        .dashboard-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
-        }
-        .dashboard-card .card-body {
-            padding: 2rem;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            min-height: 150px;
-        }
-        .dashboard-card .card-icon {
-            font-size: 3rem;
-            color: rgba(255, 255, 255, 0.7);
-            position: absolute;
-            top: 1rem;
-            right: 1.5rem;
-            opacity: 0.2;
-            z-index: 0;
-        }
-        .dashboard-card .card-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: rgba(255, 255, 255, 0.9);
-            z-index: 1;
-            position: relative;
-        }
-        .dashboard-card .card-value {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: #ffffff;
-            z-index: 1;
-            position: relative;
-        }
-        .bg-gradient-primary {
-            background: linear-gradient(45deg, #007bff, #0056b3);
-        }
-        .bg-gradient-success {
-            background: linear-gradient(45deg, #28a745, #1e7e34);
-        }
-        .bg-gradient-warning {
-            background: linear-gradient(45deg, #ffc107, #d39e00);
-        }
-        .bg-gradient-info {
-            background: linear-gradient(45deg, #17a2b8, #117a8b);
-        }
-        .bg-gradient-danger {
-            background: linear-gradient(45deg, #dc3545, #b02a37);
-        }
-        .access-card {
-            border: none;
-            border-radius: 0.75rem;
-            transition: all 0.2s ease-in-out;
-            cursor: pointer;
-            box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,.05);
-        }
-        .access-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 0.5rem 1rem rgba(0,0,0,.1);
-        }
-        .access-card .card-body {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            padding: 1.5rem;
-        }
-        .access-card .card-icon-lg {
-            font-size: 2.5rem;
-            color: var(--bs-primary);
-        }
-        .access-card .card-title-lg {
-            font-size: 1.4rem;
-            font-weight: 600;
-            color: #333;
-        }
-        .access-card .card-text-sm {
-            font-size: 0.9rem;
-            color: #666;
-        }
-        .slide-in-top {
-            animation: slideInTop 0.8s ease-out;
-            transform: translateY(-50px); /* Commence au-dessus */
-            opacity: 0;
-            animation-fill-mode: forwards;
-        }
+        /* Dashboard cards */
+        .dashboard-card { border: none; border-radius: 1rem; transition: all 0.3s ease; overflow: hidden; position: relative; }
+        .dashboard-card:hover { transform: translateY(-5px); box-shadow: 0 0.5rem 1rem rgba(0,0,0,.15) !important; }
+        .dashboard-card .card-body { padding: 2rem; display: flex; flex-direction: column; justify-content: space-between; min-height: 150px; }
+        .dashboard-card .card-icon { font-size: 3rem; color: rgba(255,255,255,.7); position: absolute; top: 1rem; right: 1.5rem; opacity: .2; z-index: 0; }
+        .dashboard-card .card-title { font-size: 1.25rem; font-weight: 600; color: rgba(255,255,255,.9); z-index: 1; position: relative; }
+        .dashboard-card .card-value { font-size: 2.5rem; font-weight: 700; color: #fff; z-index: 1; position: relative; }
+        .bg-gradient-primary { background: linear-gradient(45deg, #007bff, #0056b3); }
+        .bg-gradient-success { background: linear-gradient(45deg, #28a745, #1e7e34); }
+        .bg-gradient-warning { background: linear-gradient(45deg, #ffc107, #d39e00); }
+        .bg-gradient-info    { background: linear-gradient(45deg, #17a2b8, #117a8b); }
+        .bg-gradient-danger  { background: linear-gradient(45deg, #dc3545, #b02a37); }
 
-        @keyframes slideInTop {
-            from {
-                transform: translateY(-50px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-        .dropdown-menu-dark {
-            background-color: #212529;
-        }
-        .dropdown-menu-dark .dropdown-item {
-            color: white;
-        }
-        .dropdown-menu-dark .dropdown-item:hover {
-            background-color: #343a40;
-        }
-        
+        .access-card { border: none; border-radius: .75rem; transition: all .2s; cursor: pointer; box-shadow: 0 .25rem .75rem rgba(0,0,0,.05); }
+        .access-card:hover { transform: translateY(-3px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.1); }
+        .access-card .card-body { display: flex; align-items: center; gap: 15px; padding: 1.5rem; }
+        .access-card .card-icon-lg { font-size: 2.5rem; color: var(--bs-primary); }
+        .access-card .card-title-lg { font-size: 1.4rem; font-weight: 600; color: #333; }
+        .access-card .card-text-sm { font-size: .9rem; color: #666; }
+
+        .slide-in-top { animation: slideInTop .8s ease-out forwards; transform: translateY(-50px); opacity: 0; }
+        @keyframes slideInTop { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .dropdown-menu-dark { background-color: #212529; }
+        .dropdown-menu-dark .dropdown-item { color: #fff; }
+        .dropdown-menu-dark .dropdown-item:hover { background-color: #343a40; }
+
         .username-text {
-            max-width: 130px;
-            display: inline-block;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            vertical-align: middle;
+            max-width: 130px; display: inline-block; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap; vertical-align: middle;
         }
 
-
+        /* PWA helpers */
+        #updatePwa {
+            position: fixed; left: 50%; transform: translateX(-50%);
+            bottom: 16px; background: #0d6efd; color: #fff;
+            padding: 10px 14px; border-radius: 999px; display:none; z-index: 1080;
+        }
+        #updatePwa button{
+            margin-left:8px;border:none;background:#fff;color:#0d6efd;
+            padding:6px 10px;border-radius:999px;cursor:pointer
+        }
     </style>
 </head>
-<body>
+
+<body class="{% if current_user.is_authenticated %}has-sidebar{% endif %}">
     <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
+
     <div class="container-fluid">
         <div class="row">
-            {# Barre latérale de navigation #}
+            {% if current_user.is_authenticated %}
+            <!-- Sidebar visible uniquement si connecté -->
             <nav class="col-md-2 sidebar">
                 <h4 class="text-white mb-4">MyHouda</h4>
                 <ul class="nav flex-column">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/"><i class="bi bi-speedometer2 me-2"></i>Tableau de bord</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/clients"><i class="bi bi-people-fill me-2"></i>Clients</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/dossiers"><i class="bi bi-folder-fill me-2"></i>Dossiers</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/timesheets"><i class="bi bi-stopwatch-fill me-2"></i>Timesheets</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/factures"><i class="bi bi-receipt-cutoff me-2"></i>Factures</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/utilisateurs"><i class="bi bi-person-lines-fill me-2"></i>Utilisateurs</a>
-                    </li>
+                    <li class="nav-item"><a class="nav-link" href="/"><i class="bi bi-speedometer2 me-2"></i>Tableau de bord</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/clients"><i class="bi bi-people-fill me-2"></i>Clients</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/dossiers"><i class="bi bi-folder-fill me-2"></i>Dossiers</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/timesheets"><i class="bi bi-stopwatch-fill me-2"></i>Timesheets</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/factures"><i class="bi bi-receipt-cutoff me-2"></i>Factures</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/utilisateurs"><i class="bi bi-person-lines-fill me-2"></i>Utilisateurs</a></li>
 
-                    {% if current_user.is_authenticated %}
                     <li class="nav-item mt-5">
                         <div class="dropdown">
                             <a class="nav-link dropdown-toggle text-white" href="#" role="button" id="profilMenu" data-bs-toggle="dropdown" aria-expanded="false" title="{{ current_user.nom }}">
@@ -234,14 +126,12 @@
                             </ul>
                         </div>
                     </li>
-                    {% endif %}
                 </ul>
             </nav>
+            {% endif %}
 
-            {# Contenu principal de la page #}
-            {# Le col-md-10 offset-md-2 est crucial pour que le contenu ne soit pas sous la sidebar fixe #}
-            <main class="col-md-10 offset-md-2 main">
-                {# Affichage des messages flash #}
+            <!-- Contenu principal -->
+            <main class="{% if current_user.is_authenticated %}col-md-10 offset-md-2{% else %}col-12{% endif %} main">
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
                         <div id="flash-messages">
@@ -255,19 +145,15 @@
                     {% endif %}
                 {% endwith %}
 
-                {# Ici sera inséré le contenu spécifique à chaque page (dashboard.html, clients.html, etc.) #}
                 {% block content %}{% endblock %}
             </main>
         </div>
     </div>
 
-    {# TOUS LES SCRIPTS JAVASCRIPT VONT ICI JUSTE AVANT LA FERMETURE DU BODY #}
-    {# 1. jQuery #}
+    <!-- JS libs -->
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
-    {# 2. Bootstrap JS #}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-    {# 3. DataTables JS (dépend de jQuery) #}
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -276,125 +162,82 @@
     <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
 
-    {# 4. Chart.js et son plugin (dépendent de Chart.js lui-même) #}
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 
-    {# 5. Flask-Moment et scripts personnalisés spécifiques aux pages (via les blocs) #}
-    {# Ce bloc sera étendu par les templates enfants comme dashboard.html #}
     {% block scripts %}
-        {{ moment.include_moment() }} {# Ceci inclura moment.js et ses dépendances #}
+        {{ moment.include_moment() }}
         {{ moment.locale('fr') }}
-        {# Les scripts spécifiques à dashboard.html (Chart.js code) iront ici quand dashboard.html étend ce bloc #}
     {% endblock %}
-    <script>
-    // Attendre 5 secondes (5000 ms), puis faire disparaître le flash message
-    setTimeout(function() {
-        const flashMessages = document.querySelectorAll('.alert');
-        flashMessages.forEach(function(msg) {
-            let fade = new bootstrap.Alert(msg);
-            fade.close();  // déclenche la fermeture (équivaut à cliquer sur la croix)
-        });
-    }, 5000);
-    </script>
 
     <script>
-    if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js', { scope: '/' })
-        .then(reg => console.log('SW ok, scope:', reg.scope))
-        .catch(err => console.error('SW fail:', err));
-    }
-
-    // Bouton d’installation manuel (Edge/Chrome)
-    let deferredPrompt;
-    window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    const btn = document.getElementById('installBtn');
-    if (btn) btn.hidden = false;
-    });
-
-    document.addEventListener('DOMContentLoaded', () => {
-    const btn = document.getElementById('installBtn');
-    if (!btn) return;
-    btn.addEventListener('click', async () => {
-        btn.hidden = true;
-        if (deferredPrompt) {
-        deferredPrompt.prompt();
-        await deferredPrompt.userChoice;
-        deferredPrompt = null;
-        } else {
-        alert("Dans Edge : menu ⋯ → Applications → Installer ce site comme une application.");
-        }
-    });
-    });
-
-    window.addEventListener('appinstalled', () => {
-    const btn = document.getElementById('installBtn');
-    if (btn) btn.hidden = true;
-    });
+      // Auto-hide flash messages
+      setTimeout(function() {
+          document.querySelectorAll('.alert').forEach(function(el){
+              let a = new bootstrap.Alert(el); a.close();
+          });
+      }, 5000);
     </script>
 
-    <!-- Ajoute quelque part dans le body (par ex collé en bas) -->
+    <!-- PWA install button -->
     <button id="installBtn" hidden
             class="btn btn-outline-primary btn-sm position-fixed"
             style="right:1rem; bottom:1rem; z-index:1080;">
-    Installer l’app
+      Installer l’app
     </button>
-    <style>
-    #updatePwa {
-        position: fixed; left: 50%; transform: translateX(-50%);
-        bottom: 16px; background: #0d6efd; color: #fff;
-        padding: 10px 14px; border-radius: 999px; display:none; z-index: 1080;
-    }
-    #updatePwa button{margin-left:8px;border:none;background:#fff;color:#0d6efd;padding:6px 10px;border-radius:999px;cursor:pointer}
-    </style>
+
     <div id="updatePwa">Une mise à jour est disponible <button id="reloadPwa">Mettre à jour</button></div>
 
     <script>
+    // SW + PWA install prompt + update bar
     if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(reg => {
-        // Nouveau SW en attente d’activation
+      navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(reg => {
+        // Update workflow
         function showUpdate(registration) {
-        const bar = document.getElementById('updatePwa');
-        const btn = document.getElementById('reloadPwa');
-        if (!bar || !btn) return;
-        bar.style.display = 'inline-flex';
-        btn.onclick = () => {
-            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-        };
+          const bar = document.getElementById('updatePwa');
+          const btn = document.getElementById('reloadPwa');
+          if (!bar || !btn) return;
+          bar.style.display = 'inline-flex';
+          btn.onclick = () => { registration.waiting.postMessage({ type: 'SKIP_WAITING' }); };
         }
-
         if (reg.waiting) showUpdate(reg);
         reg.addEventListener('updatefound', () => {
-        const sw = reg.installing;
-        sw.addEventListener('statechange', () => {
+          const sw = reg.installing;
+          if (!sw) return;
+          sw.addEventListener('statechange', () => {
             if (sw.state === 'installed' && reg.waiting) showUpdate(reg);
+          });
         });
-        });
+        navigator.serviceWorker.addEventListener('controllerchange', () => { window.location.reload(); });
+      });
 
-        // Quand le SW prend le contrôle après skipWaiting
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-        window.location.reload();
+      // Install prompt
+      let deferredPrompt;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        const btn = document.getElementById('installBtn');
+        if (btn) btn.hidden = false;
+      });
+      document.addEventListener('DOMContentLoaded', () => {
+        const btn = document.getElementById('installBtn');
+        if (!btn) return;
+        btn.addEventListener('click', async () => {
+          btn.hidden = true;
+          if (deferredPrompt) {
+            deferredPrompt.prompt();
+            await deferredPrompt.userChoice;
+            deferredPrompt = null;
+          } else {
+            alert("Dans Edge : menu ⋯ → Applications → Installer ce site comme une application.");
+          }
         });
-
-        // Ecoute le message du SW
-        let refreshing;
-        if (!refreshing) {
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-            if (refreshing) return; refreshing = true; window.location.reload();
-        });
-        }
-    });
-
-    // Permettre au SW de recevoir “SKIP_WAITING”
-    navigator.serviceWorker.addEventListener('message', (event) => {
-        // placeholder si besoin
-    });
+      });
+      window.addEventListener('appinstalled', () => {
+        const btn = document.getElementById('installBtn');
+        if (btn) btn.hidden = true;
+      });
     }
     </script>
-
-
-
 </body>
 </html>

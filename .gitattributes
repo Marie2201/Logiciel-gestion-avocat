@@ -1,0 +1,15 @@
+# Normaliser tous les fichiers texte en LF
+* text=auto eol=lf
+
+# Binaires (pas de conversion)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.sqlite binary
+
+# Scripts Windows au besoin
+*.bat eol=crlf
+*.cmd eol=crlf

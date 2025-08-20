@@ -110,6 +110,7 @@ class Facture(db.Model):
     montant_ht = db.Column(db.Float)
     montant_ttc = db.Column(db.Float)
     statut = db.Column(db.String(50))
+    devise = db.Column(db.String(8), nullable=True)
     dossier_id = db.Column(db.Integer, db.ForeignKey('dossier.id'), nullable=False)
     timesheets = db.relationship("Timesheet", backref="facture", cascade="all, delete", passive_deletes=True)
     supprimé = db.Column(db.Boolean, default=False)

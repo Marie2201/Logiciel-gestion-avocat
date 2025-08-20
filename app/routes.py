@@ -22,6 +22,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from wtforms.validators import DataRequired, Optional, NumberRange
 from app.utils import generate_reset_token, verify_reset_token, send_reset_email, make_reset_token, reset_url_for
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+from datetime import time
 
 
 #from app import app
@@ -421,31 +422,43 @@ def supprimer_dossier(dossier_id):
 def factures():
     add_form = FactureForm()
     delete_form = DeleteForm()
-    factures = Facture.query.filter_by(supprimé=False).all()
-    facture_data = []
+
     if current_user.role in ['admin', 'managing-partner', 'partner','managing-associate', 'comptabilité', 'qualité']:
-        factures = Facture.query.all()
+        factures = Facture.query.filter_by(supprimé=False).all()
     else:
-        # Récupère les dossiers qui lui sont attribués
+        # dossiers de l'utilisateur
         dossiers_utilisateur = Dossier.query.filter_by(user_id=current_user.id).all()
         dossier_ids = [d.id for d in dossiers_utilisateur]
-        factures = Facture.query.filter(Facture.dossier_id.in_(dossier_ids)).all()
+        factures = Facture.query.filter(
+            Facture.supprimé == False,
+            Facture.dossier_id.in_(dossier_ids)
+        ).all()
 
+    facture_data = []
     for f in factures:
         dossier = f.dossier
         client = dossier.client if dossier else None
+
+        # Devise prioritaire: celle stockée sur la facture
+        devise = (f.devise or '').strip() or None
+        if not devise:
+            # Déduire depuis un timesheet lié si possible
+            ts = Timesheet.query.filter_by(facture_id=f.id).first()
+            devise = (ts.devise if ts and ts.devise else 'XOF')
+
         facture_data.append({
             'id': f.id,
             'date': f.date,
             'montant_ht': f.montant_ht,
             'montant_ttc': f.montant_ttc,
+            'devise': devise,  # ← NEW
             'statut': f.statut,
             'dossier_nom': dossier.nom if dossier else '',
             'client_nom': client.societe if client else ''
         })
 
-    
     return render_template('factures.html', factures=facture_data, add_form=add_form, delete_form=delete_form)
+
 
 
 # --- Nouvelle Route pour la Modification d'une Facture ---
@@ -459,6 +472,7 @@ def modifier_facture(facture_id):
         facture.date = form.date.data
         facture.montant_ht = form.montant_ht.data
         facture.montant_ttc = form.montant_ttc.data
+        facture.devise = form.devise.data
         facture.statut = form.statut.data
         facture.dossier_id = form.dossier.data.id
         db.session.commit()
@@ -549,9 +563,9 @@ def timesheets():
             ts = Timesheet(
                 date=form.date.data,
                 type_facturation='forfait',
-                heure_debut=None,
-                heure_fin=None,
-                duree_heures=None,
+                heure_debut = time(0, 0, 0),
+                heure_fin   = time(0, 0, 0),
+                duree_heures = 0,
                 taux_horaire=None,
                 montant_forfait=form.montant_forfait.data,
                 tva_applicable=tva_bool,
@@ -627,9 +641,9 @@ def edit_timesheet(id):
         if type_fact == 'forfait':
             timesheet.type_facturation = 'forfait'
             timesheet.montant_forfait = float(form.montant_forfait.data or 0)
-            timesheet.heure_debut = None
-            timesheet.heure_fin = None
-            timesheet.duree_heures = None
+            timesheet.heure_debut = time(0, 0, 0)
+            timesheet.heure_fin   = time(0, 0, 0)
+            timesheet.duree_heures = 0 
             timesheet.taux_horaire = None
             timesheet.montant_ht = round(timesheet.montant_forfait, 2)
             timesheet.montant_ttc = round(timesheet.montant_ht * (1 + tva_rate), 2) if tva_bool else timesheet.montant_ht
@@ -742,7 +756,7 @@ def ajouter_utilisateur():
 @login_required
 def generer_facture():
     form = DummyForm()
-    
+
     # POST : Générer une facture
     if request.method == 'POST':
         selected_ids = request.form.getlist('timesheet_ids')
@@ -756,22 +770,34 @@ def generer_facture():
             flash("Aucun timesheet valide sélectionné.", "danger")
             return redirect(url_for('generer_facture'))
 
-        # Vérification qu’ils appartiennent tous au même dossier
-        dossiers = set(ts.dossier_id for ts in timesheets)
+        # Vérification d'unicité du dossier
+        dossiers = {ts.dossier_id for ts in timesheets}
         if len(dossiers) != 1:
             flash("Les timesheets doivent appartenir au même dossier pour générer une facture.", "danger")
             return redirect(url_for('generer_facture'))
 
+        # Vérification d'unicité de la devise (ex: 'XOF', 'EUR', 'USD' ...)
+        devises = { (ts.devise or 'XOF') for ts in timesheets }
+        if len(devises) != 1:
+            msg = "Les timesheets sélectionnés doivent être dans la même devise (trouvées : "
+            msg += ", ".join(sorted(devises)) + ")."
+            flash(msg, "danger")
+            return redirect(url_for('generer_facture'))
+        devise_commune = devises.pop()
+
+        # Sommes brutes, SANS conversion
         montant_ht_total = sum(ts.montant_ht for ts in timesheets)
         montant_ttc_total = sum(ts.montant_ttc for ts in timesheets)
         dossier_id = timesheets[0].dossier_id
 
+        # ⚠️ Assure-toi que Facture a bien un champ 'devise' (String).
         facture = Facture(
             date=datetime.utcnow().date(),
             montant_ht=montant_ht_total,
             montant_ttc=montant_ttc_total,
             statut="En attente",
             dossier_id=dossier_id,
+            devise=devise_commune  # <— on garde la devise telle quelle
         )
         db.session.add(facture)
         db.session.commit()
@@ -784,7 +810,7 @@ def generer_facture():
         flash(f"Facture générée avec succès pour {len(timesheets)} timesheet(s).", "success")
         return redirect(url_for('factures'))
 
-    # GET : Affichage avec filtres
+    # GET : Affichage avec filtres (aucune conversion ici)
     utilisateur_id = request.args.get('utilisateur_id', type=int)
     date_debut = request.args.get('date_debut')
     date_fin = request.args.get('date_fin')
@@ -802,8 +828,7 @@ def generer_facture():
         query = query.filter(Timesheet.date >= date_debut)
     if date_fin:
         query = query.filter(Timesheet.date <= date_fin)
-    
-    devise = request.args.get('devise', 'FCFA')
+
     timesheets = query.order_by(Timesheet.date).all()
     utilisateurs = User.query.all() if current_user.role in ['admin', 'managing-partner', 'partner','managing-associate', 'comptabilité', 'qualité'] else []
 
@@ -811,9 +836,9 @@ def generer_facture():
         'generer_facture.html',
         timesheets=timesheets,
         utilisateurs=utilisateurs,
-        form=form,
-        devise=devise
+        form=form
     )
+
 
 #récupérer dossier et mettre dans client
 @app.route('/client/<int:id>')

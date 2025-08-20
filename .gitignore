@@ -11,3 +11,10 @@ app/uploads/
 create_admin.py
 migrate_db.py
 reset_password.py
+.env.*
+*.code-workspace
+.DS_Store
+Thumbs.db
+*.sqlite
+.mypy_cache/
+.pytest_cache/

@@ -26,18 +26,23 @@
             </thead>
             <tbody>
                 {% for facture in factures %}
+                {# aide: rendre plus joli selon devise #}
+                {% set _dev = facture.devise or 'XOF' %}
+                {% set _sym = '€' if _dev == 'EUR' else ('$' if _dev == 'USD' else _dev) %}
+
                 <tr class="facture-row"
                     data-id="{{ facture.id }}"
                     data-date="{{ facture.date.strftime('%d/%m/%Y') }}"
-                    data-montant-ht="{{ '{:,.2f} FCFA'.format(facture.montant_ht) }}"
-                    data-montant-ttc="{{ '{:,.2f} FCFA'.format(facture.montant_ttc) }}"
+                    data-devise="{{ _dev }}"  {# ← NEW #}
+                    data-montant-ht="{{ '{:,.2f} {}'.format(facture.montant_ht, _sym) }}"
+                    data-montant-ttc="{{ '{:,.2f} {}'.format(facture.montant_ttc, _sym) }}"
                     data-statut="{{ facture.statut }}"
                     data-dossier="{{ facture.dossier_nom }}"
-                    data-client="{{ facture.client_nom }}">
-                    
+                    data-client="{{ facture.client_nom }}"
+                >
                     <td>{{ facture.date.strftime('%d/%m/%Y') }}</td>
-                    <td>{{ '{:,.2f} XOF'.format(facture.montant_ht) }}</td>
-                    <td>{{ '{:,.2f} XOF'.format(facture.montant_ttc) }}</td>
+                    <td>{{ '{:,.2f} {}'.format(facture.montant_ht, _sym) }}</td>
+                    <td>{{ '{:,.2f} {}'.format(facture.montant_ttc, _sym) }}</td>
                     <td>
                         {% if facture.statut == 'En attente' %}
                             <span class="badge bg-warning text-dark">⏳ En attente</span>
@@ -51,8 +56,8 @@
                     </td>
                     <td>{{ facture.client_nom }}</td>
                     <td>{{ facture.dossier_nom }}</td>
-                    
                 </tr>
+
                 {% endfor %}
             </tbody>
         </table>
@@ -206,8 +211,8 @@ function showFactureDetail(row) {
     document.getElementById('detail-client').innerText = row.dataset.client;
     document.getElementById('detail-dossier').innerText = row.dataset.dossier;
     document.getElementById('detail-date').innerText = row.dataset.date;
-    document.getElementById('detail-montant-ht').innerText = row.dataset.montant_ht + ' FCFA';
-    document.getElementById('detail-montant-ttc').innerText = row.dataset.montant_ttc + ' FCFA';
+    document.getElementById('detail-montant-ht').innerText  = row.dataset.montantHt;   // déjà "1 234,56 €" ou "1 234,56 XOF"
+    document.getElementById('detail-montant-ttc').innerText = row.dataset.montantTtc;
     document.getElementById('detail-statut').innerText = row.dataset.statut;
 
     const modal = new bootstrap.Modal(document.getElementById('factureDetailModal'));

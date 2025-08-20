@@ -110,6 +110,7 @@ class FactureForm(FlaskForm):
     montant_ht = DecimalField('Montant HT', validators=[DataRequired()])
     montant_ttc = DecimalField('Montant TTC', validators=[DataRequired()])
     statut = SelectField('Statut', choices=[('En attente', 'En attente'), ('Payée', 'Payée'), ('Annulée', 'Annulée')], validators=[DataRequired()])
+    devise = SelectField('Devise', choices=[('XOF','FCFA'),('EUR','EUR'),('USD','USD')], validators=[DataRequired()])
     # Utilise query_factory et spécifie get_label
     dossier = QuerySelectField(
         'Dossier',
