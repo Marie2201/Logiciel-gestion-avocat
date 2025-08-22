@@ -23,6 +23,8 @@ from wtforms.validators import DataRequired, Optional, NumberRange
 from app.utils import generate_reset_token, verify_reset_token, send_reset_email, make_reset_token, reset_url_for
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from datetime import time
+from sqlalchemy import or_,  extract
+from collections import defaultdict
 
 
 #from app import app
@@ -49,70 +51,64 @@ def index():
     return redirect(url_for('login')) # Assurez-vous que le nom de l'endpoint est 'login'
 
 
-@app.route('/dashboard') # Tu peux avoir les deux ou juste /dashboard
+@app.route('/dashboard')
 @login_required
 def dashboard():
-    # KPI 1: Total Clients
-  # Obtenir la liste des rôles autorisés à tout voir
-    roles_autorises = ['admin', 'managing-partner', 'partner', 'managing-associate', 'comptabilité', 'qualité']
+    # rôles "global" (voient tout)
+    admin_roles = ['admin','managing-partner','partner','managing-associate','comptabilité','qualité']
+    is_admin = current_user.role in admin_roles
 
-    # KPI 1: Total Clients
-    if current_user.role in roles_autorises:
-        total_clients = Client.query.count()
+    # bases des requêtes
+    q_clients   = Client.query.filter_by(supprimé=False)
+    q_dossiers  = Dossier.query.filter_by(supprimé=False)
+    q_factures  = Facture.query.filter_by(supprimé=False)
+    q_timesheet = Timesheet.query.filter_by(supprimé=False)
+
+    # restriction par utilisateur si non-admin
+    if not is_admin:
+        q_clients   = q_clients.filter(Client.user_id == current_user.id)
+        q_dossiers  = q_dossiers.filter(Dossier.user_id == current_user.id)
+        q_factures  = q_factures.join(Dossier, Facture.dossier_id == Dossier.id)\
+                                .filter(Dossier.user_id == current_user.id)
+        q_timesheet = q_timesheet.filter(Timesheet.user_id == current_user.id)
+
+    # === KPIs pour ton template ===
+    total_clients  = q_clients.count()
+
+    # "Dossiers Actifs" = statut 'En cours'
+    dossiers_actifs = q_dossiers.filter(Dossier.statut == 'En cours').count()
+
+    # "Factures En Attente" = tout sauf payé (ajuste la liste si besoin)
+    factures_en_attente = q_factures.filter(
+        Facture.statut.in_(['Brouillon','En attente','Non payée','Partiellement payée','Impayée'])
+    ).count()
+
+    # "Montant Facturé (TTC)" = somme TTC (tous statuts confondus ici)
+    if is_admin:
+        montant_total_facture_ttc = db.session.query(
+            func.coalesce(func.sum(Facture.montant_ttc), 0)
+        ).scalar()
     else:
-        total_clients = Client.query.filter_by(user_id=current_user.id).count()
+        montant_total_facture_ttc = 0
 
-    # KPI 2: Total Dossiers (Statut 'En cours')
-    if current_user.role in roles_autorises:
-        total_dossiers = Dossier.query.count()
-    else:
-        total_dossiers = Dossier.query.filter_by(user_id=current_user.id).count()
+    # "Timesheets à facturer" = non rattachés à une facture
+    timesheets_en_attente_facturation = q_timesheet.filter(
+        Timesheet.facture_id.is_(None)
+    ).count()
 
-    # --- Dossiers de l'utilisateur pour les restrictions ---
-    dossiers_ids = [d.id for d in Dossier.query.filter_by(user_id=current_user.id).all()] \
-        if current_user.role not in roles_autorises else None
+    # pour {{ moment(now) }} dans le template
+    now = datetime.utcnow()
 
-    # KPI 3: Factures En Attente
-    if current_user.role in roles_autorises:
-        factures_en_attente = Facture.query.count()
-    else:
-        factures_en_attente = Facture.query.filter(Facture.dossier_id.in_(dossiers_ids)).count()
-
-    # KPI 4: Montant Total Facturé (TTC)
-    if current_user.role in roles_autorises:
-        montant_total = db.session.query(func.sum(Facture.montant_ttc)).scalar() or 0
-    else:
-        montant_total = db.session.query(func.sum(Facture.montant_ttc))\
-            .filter(Facture.dossier_id.in_(dossiers_ids)).scalar() or 0
-
-    # KPI 5: Timesheets en attente de facturation
-    if current_user.role in roles_autorises:
-        total_ts = Timesheet.query.count()
-    else:
-        total_ts = Timesheet.query.filter_by(user_id=current_user.id).count()
-
-
-
-    # Données pour les graphiques (Exemple : Répartition des statuts de dossiers)
-    dossier_statuts = db.session.query(Dossier.statut, func.count(Dossier.id))\
-                              .filter_by(supprimé=False)\
-                              .group_by(Dossier.statut)\
-                              .all()
-    # Formatage pour Chart.js
-    labels_statuts = [s[0] for s in dossier_statuts]
-    data_statuts = [s[1] for s in dossier_statuts]
-    current_time = datetime.utcnow()
-    # Tu pourrais ajouter plus de données pour d'autres graphiques (ex: factures par mois)
-
-    return render_template('dashboard.html',
-                           total_clients=total_clients,
-                           dossiers_actifs=total_dossiers,
-                           factures_en_attente=factures_en_attente,
-                           montant_total_facture_ttc=montant_total,
-                           timesheets_en_attente_facturation=total_ts,
-                           labels_statuts=labels_statuts,
-                           data_statuts=data_statuts,
-                           now=current_time)
+    return render_template(
+        'dashboard.html',
+        total_clients=total_clients,
+        dossiers_actifs=dossiers_actifs,
+        factures_en_attente=factures_en_attente,
+        montant_total_facture_ttc=montant_total_facture_ttc,
+        timesheets_en_attente_facturation=timesheets_en_attente_facturation,
+        is_admin=is_admin,
+        now=now
+    )
 
 
 #notifications mail
@@ -233,38 +229,42 @@ def dossiers():
     delete_form = DeleteForm()
     changer_form = ChangerReferentForm()
 
-    # Clients actifs
-    clients = Client.query.filter_by(supprimé=False).all()
-    form.client_id.choices = [(c.id, c.societe) for c in clients]
+    # ——— Select2 AJAX : forcer les attributs côté serveur ———
+    form.client_id.render_kw = {**(form.client_id.render_kw or {}),  # /api/clients
+        'class': 'form-select select2-ajax',
+        'data-ajax_url': url_for('api_clients'),
+        'data-placeholder': 'Rechercher un client…'
+    }
 
-    # Utilisateurs pour attribution
+    # Utilisateurs (liste locale classique)
     utilisateurs_possibles = User.query.filter(
         User.supprimé == False,
-        User.role.in_(['admin','managing-partner', 'partner', 'managing-associate', 'juriste', 'avocat', 'comptabilité', 'qualité', 'clerc', 'secrétaire'])
-    ).all()
+        User.role.in_([
+            'admin','managing-partner','partner','managing-associate',
+            'juriste','avocat','comptabilité','qualité','clerc','secrétaire'
+        ])
+    ).order_by(User.nom).all()
     form.user_id.choices = [(u.id, u.nom) for u in utilisateurs_possibles]
-
-    # Pour changement de référent
     changer_form.nouveau_referent.choices = [(u.id, u.nom) for u in utilisateurs_possibles]
 
-    # Pré-remplir user_id à l'ouverture
-    if request.method == "GET":
-        form.user_id.default = current_user.id
-        form.process()
-        print("📥 Données POST reçues :", request.form)
+    # Select2 AJAX: ne pas précharger 10k+ clients, juste l’option sélectionnée si besoin
+    if form.client_id.data:
+        c = Client.query.get(form.client_id.data)
+        form.client_id.choices = [(c.id, c.societe)] if c and not getattr(c, 'supprimé', False) else []
+    else:
+        form.client_id.choices = []
 
-    # --- Création d'un dossier (POST valide) ---
+    # Pré-remplir référent à l’ouverture
+    if request.method == "GET" and not form.user_id.data:
+        form.user_id.data = current_user.id
+
+    # --- Création d'un dossier ---
     if form.validate_on_submit():
         try:
             user_id = form.user_id.data or current_user.id
-
-            # 1) Numéro saisi manuellement ?
-            numero_input = ""
-            if hasattr(form, "numero") and form.numero.data:
-                numero_input = form.numero.data.strip()
+            numero_input = (form.numero.data or "").strip() if hasattr(form, "numero") else ""
 
             if numero_input:
-                # Valider & normaliser
                 annee, sequence = parse_numero_to_components(numero_input)
                 numero_norm = compute_numero(sequence, annee)
 
@@ -272,16 +272,26 @@ def dossiers():
                     nom=form.nom.data,
                     description=form.description.data,
                     date_ouverture=form.date_ouverture.data,
-                    procedure=form.procedure.data,
+                    procedures=(form.procedures.data or "").strip() or None,
                     statut=form.statut.data,
                     client_id=form.client_id.data,
                     user_id=user_id,
-                    # champs liés au numéro
-                    annee=annee,
-                    sequence=sequence,
-                    numero=numero_norm
+                    annee=annee, sequence=sequence, numero=numero_norm
                 )
                 db.session.add(nouveau_dossier)
+                db.session.flush()  # pour avoir l'ID
+
+                # historiser l'attribution initiale
+                hist = AttributionHistorique(
+                    dossier_id=nouveau_dossier.id,
+                    ancien_referent_id=None,
+                    nouveau_referent_id=user_id,
+                    auteur_id=current_user.id,
+                    date_attribution=datetime.utcnow(),
+                    motif="Attribution initiale"
+                )
+                db.session.add(hist)
+
                 try:
                     db.session.commit()
                     flash("✅ Dossier ajouté avec succès.", "success")
@@ -289,9 +299,8 @@ def dossiers():
                 except IntegrityError:
                     db.session.rollback()
                     flash("❌ Numéro de dossier déjà utilisé. Merci d’en saisir un autre.", "danger")
-                    # On retombe plus bas pour ré-afficher la page avec le formulaire et les erreurs
+
             else:
-                # 2) Génération automatique (année courante, incrément de séquence)
                 annee = datetime.now().year
                 MAX_RETRY = 5
                 for _ in range(MAX_RETRY):
@@ -303,104 +312,138 @@ def dossiers():
                         nom=form.nom.data,
                         description=form.description.data,
                         date_ouverture=form.date_ouverture.data,
-                        procedure=form.procedure.data,
+                        procedures=(form.procedures.data or "").strip() or None,
                         statut=form.statut.data,
                         client_id=form.client_id.data,
                         user_id=user_id,
-                        annee=annee,
-                        sequence=sequence,
-                        numero=numero_gen
+                        annee=annee, sequence=sequence, numero=numero_gen
                     )
                     db.session.add(nouveau_dossier)
+                    db.session.flush()
+
+                    # historiser l'attribution initiale
+                    hist = AttributionHistorique(
+                        dossier_id=nouveau_dossier.id,
+                        ancien_referent_id=None,
+                        nouveau_referent_id=user_id,
+                        auteur_id=current_user.id,
+                        date_attribution=datetime.utcnow(),
+                        motif="Attribution initiale"
+                    )
+                    db.session.add(hist)
+
                     try:
                         db.session.commit()
                         flash("✅ Dossier ajouté avec succès.", "success")
                         return redirect(url_for('dossiers'))
                     except IntegrityError:
-                        # collision de concurrence (rare) → on retente
                         db.session.rollback()
                         continue
-
                 flash("❌ Impossible de générer un numéro unique. Réessayez.", "danger")
 
         except ValueError as ve:
             db.session.rollback()
             flash(f"❌ {str(ve)}", "danger")
-        except Exception as e:
+        except Exception:
             db.session.rollback()
-            print("❌ Erreur lors de l'ajout du dossier :", e)
+            current_app.logger.exception("Erreur lors de l'ajout du dossier")
             flash("❌ Une erreur s’est produite lors de l’ajout du dossier.", "danger")
     else:
         if request.method == "POST":
-            print("⚠️ Erreurs formulaire :", form.errors)
+            current_app.logger.info(f"⚠️ Erreurs formulaire : {form.errors}")
 
-    # --- Liste des dossiers selon les droits ---
+    # --- Liste des dossiers (droits/filtre) ---
     client_id = request.args.get('client_id', type=int)
     query = Dossier.query.filter_by(supprimé=False)
-
-    if current_user.role not in ['admin', 'managing-partner', 'partner', 'managing-associate', 'comptabilité', 'qualité']:
+    if current_user.role not in ['admin','managing-partner','partner','managing-associate','comptabilité','qualité']:
         query = query.filter_by(user_id=current_user.id)
-
     if client_id:
         query = query.filter_by(client_id=client_id)
-
     dossiers_list = query.order_by(Dossier.id.desc()).all()
+
+    # ---- Charger les historiques (APRES avoir la liste) ----
+    hist_map = defaultdict(list)
+    if dossiers_list:
+        dossier_ids = [d.id for d in dossiers_list]
+        rows = (AttributionHistorique.query
+                .filter(AttributionHistorique.dossier_id.in_(dossier_ids))
+                .order_by(AttributionHistorique.date_attribution.desc())
+                .all())
+        for h in rows:
+            hist_map[h.dossier_id].append(h)
 
     return render_template(
         'dossiers.html',
         form=form,
         delete_form=delete_form,
         dossiers=dossiers_list,
-        clients=clients,
+        clients=[],  # on ne pousse plus la liste complète
         users=utilisateurs_possibles,
-        changer_form=changer_form
+        changer_form=changer_form,
+        AttributionHistorique=AttributionHistorique,
+        hist_map=hist_map
     )
+
 
 
 #modifier dossier
 @app.route('/dossiers/modifier/<int:dossier_id>', methods=['GET', 'POST'])
+@login_required
 def modifier_dossier(dossier_id):
     dossier = Dossier.query.get_or_404(dossier_id)
     form = DossierForm(obj=dossier)
 
-    form.client_id.choices = [(client.id, f"{client.societe}") for client in Client.query.filter_by(supprimé=False).all()]
-    form.user_id.choices = [(user.id, user.nom) for user in User.query.filter(
-        User.role.in_(['admin','managing-partner', 'partner', 'managing-associate', 'juriste', 'avocat', 'comptabilité', 'qualité', 'clerc', 'secrétaire']),
+    form.client_id.choices = [(c.id, f"{c.societe}") for c in Client.query.filter_by(supprimé=False).all()]
+    form.user_id.choices = [(u.id, u.nom) for u in User.query.filter(
+        User.role.in_(['admin','managing-partner','partner','managing-associate',
+                       'juriste','avocat','comptabilité','qualité','clerc','secrétaire']),
         User.supprimé == False
     ).all()]
-#     utilisateurs = User.query.filter(
-#     User.role.in_(['admin', 'managing-partner', 'partner', 'managing-associate', 'juriste', 'avocat']),
-#     User.supprimé == False
-# ).all()
-    print("📋 Utilisateurs disponibles pour attribution :")
-    tous_les_users = User.query.all()
-    print("🧾 Liste complète des utilisateurs en base :")
-    for u in tous_les_users:
-        print(f"- {u.id} | {u.nom} | {u.email} | rôle: '{u.role}' | supprimé: {u.supprimé}")
 
     if form.validate_on_submit():
-        ancien_user_id = dossier.user_id
-        nouveau_user_id = form.user_id.data
+        try:
+            ancien_user_id = dossier.user_id
+            nouveau_user_id = form.user_id.data
 
-        dossier.nom = form.nom.data
-        dossier.description = form.description.data
-        dossier.date_ouverture = form.date_ouverture.data
-        dossier.procedure = form.procedure.data
-        dossier.statut = form.statut.data
-        dossier.client_id = form.client_id.data
-        dossier.user_id = nouveau_user_id
+            # champs habituels
+            dossier.nom = form.nom.data
+            dossier.description = form.description.data
+            dossier.date_ouverture = form.date_ouverture.data
+            dossier.procedures = (form.procedures.data or "").strip() or None
+            dossier.statut = form.statut.data
+            dossier.client_id = form.client_id.data
+            dossier.user_id = nouveau_user_id
 
-        db.session.commit()
+            # ➜ Historiser si le référent change
+            if ancien_user_id != nouveau_user_id:
+                hist = AttributionHistorique(
+                    dossier_id=dossier.id,
+                    ancien_referent_id=ancien_user_id,
+                    nouveau_referent_id=nouveau_user_id,
+                    auteur_id=current_user.id,               # ✅ bon nom de colonne
+                    date_attribution=datetime.utcnow(),       # ✅ timestamp
+                    motif="Changement de référent"
+                )
+                db.session.add(hist)
 
-        # 💌 Envoi de notification si changement
-        if ancien_user_id != nouveau_user_id:
-            nouveau_referent = User.query.get(nouveau_user_id)
-            envoyer_mail_attribution(nouveau_referent, dossier)
+            db.session.commit()
 
-        flash("Dossier modifié avec succès.", "success")
-        return redirect(url_for('dossiers'))
+            # (optionnel) notifier le nouveau référent
+            if ancien_user_id != nouveau_user_id:
+                nouveau_referent = User.query.get(nouveau_user_id)
+                if nouveau_referent:
+                    envoyer_mail_attribution(nouveau_referent, dossier)
+
+            flash("Dossier modifié avec succès.", "success")
+            return redirect(url_for('dossiers'))
+
+        except Exception:
+            db.session.rollback()
+            current_app.logger.exception("Erreur modification dossier")
+            flash("❌ Erreur lors de la modification.", "danger")
 
     return render_template('modifier_dossier.html', form=form, dossier=dossier)
+
 
     # delete_form = DeleteForm()  # formulaire WTForm minimal
     # return render_template('dossiers.html', form=form, delete_form=delete_form, dossiers=dossiers_list)
@@ -515,14 +558,22 @@ def _calc_ttc(montant_ht, tva_applicable):
 def timesheets():
     form = TimesheetForm()
 
-    # Choix dossiers (clients non supprimés + dossiers non supprimés)
-    form.dossier_id.choices = [
-        (d.id, f"{d.client.societe} - {d.nom}")
-        for d in Dossier.query.join(Client)
-              .filter(Dossier.supprimé == False, Client.supprimé == False)
-              .order_by(Client.societe, Dossier.nom)
-              .all()
-    ]
+    # ——— Select2 AJAX : forcer les attributs côté serveur ———
+    form.dossier_id.render_kw = {**(form.dossier_id.render_kw or {}),
+        'class': 'form-select select2-ajax',
+        'data-ajax_url': url_for('api_dossiers'),
+        'data-placeholder': 'Rechercher un dossier…'
+    }
+
+    # NE PAS précharger tous les dossiers
+    if form.dossier_id.data:
+        d = Dossier.query.get(form.dossier_id.data)
+        if d and not getattr(d, 'supprimé', False) and d.client and not getattr(d.client, 'supprimé', False):
+            form.dossier_id.choices = [(d.id, f"{d.client.societe} - {d.nom}")]
+        else:
+            form.dossier_id.choices = []
+    else:
+        form.dossier_id.choices = []
 
     if form.validate_on_submit():
         tva_bool = (form.tva_applicable.data == 'oui')
@@ -532,7 +583,7 @@ def timesheets():
             dt_debut = datetime.combine(form.date.data, form.heure_debut.data)
             dt_fin   = datetime.combine(form.date.data, form.heure_fin.data)
             if dt_fin < dt_debut:
-                dt_fin += timedelta(days=1)  # passage minuit
+                dt_fin += timedelta(days=1)
             duree_h = round((dt_fin - dt_debut).total_seconds() / 3600.0, 2)
 
             ht  = round(duree_h * float(form.taux_horaire.data), 2)
@@ -549,23 +600,22 @@ def timesheets():
                 tva_applicable=tva_bool,
                 montant_ht=ht,
                 montant_ttc=ttc,
-                statut=form.statut.data,              # ✅ AJOUTÉ
+                statut=form.statut.data,
                 devise=(form.devise.data or "XOF").upper(),
                 description=form.description.data or '',
                 dossier_id=form.dossier_id.data,
                 user_id=current_user.id
             )
-
-        else:  # forfait
+        else:
             ht  = round(float(form.montant_forfait.data), 2)
             ttc = round(ht * (1 + tva_rate), 2) if tva_bool else ht
 
             ts = Timesheet(
                 date=form.date.data,
                 type_facturation='forfait',
-                heure_debut = time(0, 0, 0),
-                heure_fin   = time(0, 0, 0),
-                duree_heures = 0,
+                heure_debut=time(0,0,0),
+                heure_fin=time(0,0,0),
+                duree_heures=0,
                 taux_horaire=None,
                 montant_forfait=form.montant_forfait.data,
                 tva_applicable=tva_bool,
@@ -582,19 +632,70 @@ def timesheets():
         db.session.commit()
         flash("Timesheet enregistré avec succès.", "success")
         return redirect(url_for('timesheets'))
-
+    
     if form.errors:
         current_app.logger.info(form.errors)
 
-    # Affichage filtré selon rôle
-    if current_user.role in ['admin', 'managing-partner', 'partner', 'managing-associate', 'comptabilité', 'qualité']:
-        timesheets_list = Timesheet.query.filter_by(supprimé=False)\
-                            .order_by(Timesheet.date.desc(), Timesheet.id.desc()).all()
-    else:
-        timesheets_list = Timesheet.query.filter_by(user_id=current_user.id, supprimé=False)\
-                            .order_by(Timesheet.date.desc(), Timesheet.id.desc()).all()
+    client_id = request.args.get('client_id', type=int)
 
-    return render_template("timesheets.html", form=form, timesheets=timesheets_list, delete_form=DeleteForm())
+    q = (Timesheet.query
+         .options(
+             joinedload(Timesheet.dossier).joinedload(Dossier.client),
+             joinedload(Timesheet.user))
+         .filter(Timesheet.supprimé == False))
+
+    if current_user.role not in ['admin', 'managing-partner', 'partner', 'managing-associate', 'comptabilité', 'qualité']:
+        q = q.filter(Timesheet.user_id == current_user.id)
+
+    if client_id:
+        q = (q.join(Timesheet.dossier)
+               .join(Dossier.client)
+               .filter(Client.id == client_id))
+
+    timesheets_list = q.order_by(Timesheet.date.desc(), Timesheet.id.desc()).all()
+    # Affichage filtré selon rôle
+    # if current_user.role in ['admin', 'managing-partner', 'partner', 'managing-associate', 'comptabilité', 'qualité']:
+    #     timesheets_list = Timesheet.query.filter_by(supprimé=False)\
+    #                          .order_by(Timesheet.date.desc(), Timesheet.id.desc()).all()
+    # else:
+    #     timesheets_list = Timesheet.query.filter_by(user_id=current_user.id, supprimé=False)\
+    #                          .order_by(Timesheet.date.desc(), Timesheet.id.desc()).all()
+
+    return render_template("timesheets.html", form=form, timesheets=timesheets_list, 
+                           delete_form=DeleteForm(),
+                           selected_client_id=client_id)
+
+#timesheet par client
+@app.route('/timesheets/clients', methods=['GET'])
+@login_required
+def timesheets_par_client():
+    # Base query avec jointures
+    q = (db.session.query(
+            Client.id.label('client_id'),
+            Client.societe.label('client'),
+            func.count(Timesheet.id).label('nb_ts'),
+            func.coalesce(func.sum(Timesheet.duree_heures), 0).label('heures_total'),
+            func.coalesce(func.sum(Timesheet.montant_ht), 0).label('ht_total'),
+            func.coalesce(func.sum(Timesheet.montant_ttc), 0).label('ttc_total'))
+         .join(Dossier, Dossier.client_id == Client.id)
+         .join(Timesheet, Timesheet.dossier_id == Dossier.id)
+         .filter(Timesheet.supprimé == False))
+
+    # Rôles
+    if current_user.role not in ['admin', 'managing-partner', 'partner', 'managing-associate', 'comptabilité', 'qualité']:
+        q = q.filter(Timesheet.user_id == current_user.id)
+
+    # Évite d’afficher les clients/dossiers supprimés si tu as la colonne
+    if hasattr(Client, 'supprimé'):
+        q = q.filter(Client.supprimé == False)
+    if hasattr(Dossier, 'supprimé'):
+        q = q.filter(Dossier.supprimé == False)
+
+    rows = (q.group_by(Client.id, Client.societe)
+              .order_by(Client.societe.asc())
+              .all())
+
+    return render_template("timesheets_par_client.html", rows=rows)
 
 
 # ----------------------------
@@ -1006,41 +1107,54 @@ def supprimer_utilisateur(id):
 
 
 
-# @app.route('/changer_referent_popup', methods=['POST'])
-# @login_required
-# def changer_referent_popup():
-#     form = ChangerReferentForm()
+@app.route('/dossiers/<int:dossier_id>/changer_referent', methods=['POST'])
+@login_required
+def changer_referent(dossier_id):
+    dossier = Dossier.query.get_or_404(dossier_id)
+    form = ChangerReferentForm()
 
-#     # Recharge les choix dans le SelectField
-#     form.nouveau_referent.choices = [(u.id, u.nom) for u in User.query.all()]
+    utilisateurs_possibles = User.query.filter(
+        User.supprimé == False,
+        User.role.in_(['admin','managing-partner','partner','managing-associate',
+                       'juriste','avocat','comptabilité','qualité','clerc','secrétaire'])
+    ).order_by(User.nom).all()
+    form.nouveau_referent.choices = [(u.id, u.nom) for u in utilisateurs_possibles]
 
-#     if form.validate_on_submit():
-#         dossier_id = form.dossier_id.data
-#         nouveau_referent_id = form.nouveau_referent.data
+    if not form.validate_on_submit():
+        flash("Formulaire invalide.", "danger")
+        return redirect(url_for('dossiers'))
 
-#         dossier = Dossier.query.get_or_404(dossier_id)
-#         ancien_referent_id = dossier.user_id
+    nouveau_id = form.nouveau_referent.data
+    ancien_id = dossier.user_id
 
-#         if int(nouveau_referent_id) != ancien_referent_id:
-#             dossier.user_id = nouveau_referent_id
+    if ancien_id == nouveau_id:
+        flash("Aucun changement : le référent est identique.", "info")
+        return redirect(url_for('dossiers'))
 
-#             historique = AttributionHistorique(
-#                 dossier_id=dossier.id,
-#                 ancien_referent_id=ancien_referent_id,
-#                 nouveau_referent_id=nouveau_referent_id,
-#                 auteur_id=current_user.id
-#             )
+    try:
+        dossier.user_id = nouveau_id
+        db.session.add(dossier)
 
-#             db.session.add(historique)
-#             db.session.commit()
-#             flash("Référent modifié avec succès.", "success")
-#         else:
-#             flash("Aucun changement effectué.", "info")
-#     else:
-#         flash("Erreur dans le formulaire.", "danger")
-#         print("Form errors:", form.errors)
+        hist = AttributionHistorique(
+            dossier_id=dossier.id,
+            ancien_referent_id=ancien_id,
+            nouveau_referent_id=nouveau_id,
+            auteur_id=current_user.id,                 # ✅ bon champ
+            date_attribution=datetime.utcnow(),        # ✅ timestamp
+            motif=(form.motif.data or '').strip() or None
+        )
+        db.session.add(hist)
 
-#     return redirect(url_for('dossiers'))
+        db.session.commit()
+        flash("Référent modifié et historisé ✅", "success")
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Erreur changement référent")
+        flash("❌ Erreur lors du changement de référent.", "danger")
+
+    return redirect(url_for('dossiers'))
+
+
 
 
 
@@ -1341,6 +1455,60 @@ def reset_password(token):
         return redirect(url_for('login'))
     return render_template('auth/reset_password.html', form=form)
 
+#création api
+from flask import jsonify, request
+from sqlalchemy import or_
+
+@app.route('/api/clients')
+@login_required
+def api_clients():
+    q = (request.args.get('q') or '').strip()
+    page = request.args.get('page', type=int, default=1)
+    per_page = 20
+
+    query = Client.query.filter_by(supprimé=False)
+    if q:
+        like = f"%{q}%"
+        query = query.filter(or_(
+            Client.societe.ilike(like),
+            # dé-commente/ajoute d'autres colonnes si utiles :
+            # Client.email.ilike(like),
+            # Client.telephone.ilike(like),
+        ))
+
+    p = query.order_by(Client.societe).paginate(page=page, per_page=per_page, error_out=False)
+    return jsonify({
+        'results': [{'id': c.id, 'text': c.societe} for c in p.items],
+        'pagination': {'more': p.has_next}
+    })
+
+
+@app.route('/api/dossiers')
+@login_required
+def api_dossiers():
+    q = (request.args.get('q') or '').strip()
+    page = request.args.get('page', type=int, default=1)
+    per_page = 20
+    client_id = request.args.get('client_id', type=int)
+
+    query = Dossier.query.filter(Dossier.supprimé == False)
+    if client_id:
+        query = query.filter(Dossier.client_id == client_id)
+    if q:
+        like = f"%{q}%"
+        query = query.filter(Dossier.nom.ilike(like))
+
+    # éviter les clients supprimés
+    query = query.join(Client).filter(Client.supprimé == False)
+
+    p = query.order_by(Dossier.nom).paginate(page=page, per_page=per_page, error_out=False)
+    return jsonify({
+        'results': [{
+            'id': d.id,
+            'text': f"{d.nom} — {d.client.societe}"
+        } for d in p.items],
+        'pagination': {'more': p.has_next}
+    })
 
 
 

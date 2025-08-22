@@ -6,7 +6,7 @@
 <div class="container mt-4"> 
   <div class="container py-4 px-4 rounded shadow-lg" style="background-color: #eafae5;">
     <div class="d-flex justify-content-between align-items-center mb-4">
-      <h2 class="text-primary">🕒 Gestion des Timesheets</h2>
+      <!--<h2 class="text-primary">🕒 Gestion des Timesheets</h2>-->
       <button class="btn btn-success shadow" data-bs-toggle="modal" data-bs-target="#ajoutTimesheetModal">
         <i class="bi bi-plus-circle"></i> Ajouter un timesheet
       </button>
@@ -21,11 +21,11 @@
       style="background-color: #eafae5; border: 1px solid #c5e7bc;">
       <thead style="background-color: #c5e7bc; color: #000;">
         <tr>
+          <th>Client</th>
           <th>Date</th>
           <th>Début</th>
           <th>Fin</th>
           <th>Durée (h)</th>
-          <th>Client</th>
           <th>Dossier</th>
           <th>Utilisateur</th>
           <th>Type</th>
@@ -40,6 +40,7 @@
         {% for ts in timesheets %}
         {% set unit = 'FCFA' if ts.devise=='XOF' else ('€' if ts.devise=='EUR' else ('$' if ts.devise=='USD' else ts.devise)) %}
         <tr class="ts-row" ondblclick="showTimesheetDetail(this)"
+            data-client_id="{{ ts.dossier.client.id }}"
             data-id="{{ ts.id }}"
             data-client="{{ ts.dossier.client.societe }}"
             data-dossier="{{ ts.dossier.numero }} – {{ ts.dossier.nom }}"
@@ -56,28 +57,26 @@
             data-montant_ht="{{ '%.2f'|format(ts.montant_ht or 0) }}"
             data-montant_ttc="{{ '%.2f'|format(ts.montant_ttc or 0) }}"
             data-duree_heures="{{ '%.2f'|format(ts.duree_heures) if ts.duree_heures is not none else '' }}">
-          <td>{{ ts.date.strftime('%d/%m/%Y') }}</td>
-          <td>{{ ts.heure_debut.strftime('%H:%M') if ts.heure_debut else '—' }}</td>
-          <td>{{ ts.heure_fin.strftime('%H:%M') if ts.heure_fin else '—' }}</td>
-          <td>{{ '%.2f'|format(ts.duree_heures) if ts.duree_heures is not none else '—' }}</td>
-          <td>{{ ts.dossier.client.societe }}</td>
-          <td>{{ ts.dossier.numero }} – {{ ts.dossier.nom }}</td>
-          <td>{{ ts.user.nom if ts.user else '—' }}</td>
+          <!-- ORDRE aligné au THEAD -->
+          <td>{{ ts.dossier.client.societe }}</td>                                 <!-- Client -->
+          <td>{{ ts.date.strftime('%d/%m/%Y') }}</td>                               <!-- Date -->
+          <td>{{ ts.heure_debut.strftime('%H:%M') if ts.heure_debut else '—' }}</td><!-- Début -->
+          <td>{{ ts.heure_fin.strftime('%H:%M') if ts.heure_fin else '—' }}</td>    <!-- Fin -->
+          <td>{{ '%.2f'|format(ts.duree_heures) if ts.duree_heures is not none else '—' }}</td> <!-- Durée (h) -->
+          <td>{{ ts.dossier.numero }} – {{ ts.dossier.nom }}</td>                   <!-- Dossier -->
+          <td>{{ ts.user.nom if ts.user else '—' }}</td>                            <!-- Utilisateur -->
           <td>
             {% if ts.type_facturation == 'forfait' %}
               <span class="badge bg-info">Forfait</span>
             {% else %}
               <span class="badge bg-secondary">Horaire</span>
             {% endif %}
-          </td>
-          <td>{{ unit }}</td>
-          <td>
-            {% if ts.type_facturation == 'horaire' %}
-              {{ '%.2f'|format(ts.taux_horaire or 0) }} {{ unit }}
-            {% else %} — {% endif %}
-          </td>
-          <td>{{ '%.2f'|format(ts.montant_ht or 0) }} {{ unit }}</td>
-          <td>{{ '%.2f'|format(ts.montant_ttc or 0) }} {{ unit }}</td>
+          </td>                                                                      <!-- Type -->
+          {% set unit = 'FCFA' if ts.devise=='XOF' else ('€' if ts.devise=='EUR' else ('$' if ts.devise=='USD' else ts.devise)) %}
+          <td>{{ unit }}</td>                                                        <!-- Devise -->
+          <td>{% if ts.type_facturation == 'horaire' %}{{ '%.2f'|format(ts.taux_horaire or 0) }} {{ unit }}{% else %}—{% endif %}</td> <!-- Taux -->
+          <td>{{ '%.2f'|format(ts.montant_ht or 0) }} {{ unit }}</td>               <!-- HT -->
+          <td>{{ '%.2f'|format(ts.montant_ttc or 0) }} {{ unit }}</td>              <!-- TTC -->
           <td>
             <span class="badge 
               {% if ts.statut and ts.statut|lower|trim == 'facturé' %}bg-success
@@ -86,7 +85,7 @@
               {% else %}bg-secondary{% endif %}">
               {{ ts.statut }}
             </span>
-          </td>
+          </td>                                                                      <!-- Statut -->
         </tr>
         {% endfor %}
       </tbody>
@@ -146,7 +145,7 @@
 
           <div class="col-md-6">
             {{ form.dossier_id.label(class="form-label") }}
-            {{ form.dossier_id(class="form-select") }}
+            {{ form.dossier_id(class="form-select select2-ajax") }}
           </div>
 
           <div class="col-md-6">
@@ -277,51 +276,83 @@
 
 <script src="https://cdn.datatables.net/buttons/2.2.2/js/dataTables.buttons.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.2.2/js/buttons.bootstrap5.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.2.2/js/buttons.html5.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.2.2/js/buttons.print.min.js"></script>
 
 <link rel="stylesheet" href="https://cdn.datatables.net/select/1.7.0/css/select.bootstrap5.min.css">
 <script src="https://cdn.datatables.net/select/1.7.0/js/dataTables.select.min.js"></script>
 
+<link  href="https://cdn.datatables.net/rowgroup/1.3.1/css/rowGroup.dataTables.min.css" rel="stylesheet">
+<script src="https://cdn.datatables.net/rowgroup/1.3.1/js/dataTables.rowGroup.min.js"></script>
+
 <script>
 (function () {
   "use strict";
+  (function compactTimesheets() {
+  const css = `
+    /* police et paddings plus petits */
+    #timesheetsTable thead th,
+    #timesheetsTable tbody td{
+      font-size:12px !important;
+      padding:4px 6px !important;
+      line-height:1.1 !important;
+    }
+    /* badges (Type, Statut) plus petits */
+    #timesheetsTable .badge{
+      font-size:10px !important;
+      padding:.15rem .35rem !important;
+    }
+    /* tout sur une ligne pour gagner de la place... */
+    #timesheetsTable th, #timesheetsTable td{ white-space:nowrap; }
+    /* ...sauf la colonne Dossier qui peut se mettre sur 2-3 lignes */
+    #timesheetsTable th:nth-child(6),
+    #timesheetsTable td:nth-child(6){
+      white-space:normal !important;
+      max-width:240px;              /* ajuste si tu veux plus/moins */
+    }
+  `;
+  const style = document.createElement('style');
+  style.id = 'timesheets-compact-css';
+  style.textContent = css;
+  document.head.appendChild(style);
 
-  // --- utilitaires ---
+  // recalcul DataTables pour appliquer les nouvelles largeurs
+  if (window.jQuery && $('#timesheetsTable').length && typeof dt !== 'undefined') {
+    setTimeout(() => dt.columns.adjust().draw(false), 0);
+  }
+})();
+  
+  // ---------------- Utils ----------------
   function currencyLabelFrom(code) {
     if (code === 'EUR') return '€';
     if (code === 'USD') return '$';
-    return 'FCFA'; // XOF
+    return 'FCFA';
   }
 
   function showTimesheetDetail(row) {
     const id   = row.dataset.id;
     const typ  = row.dataset.type || 'horaire';
     const unit = currencyLabelFrom(row.dataset.devise || 'XOF');
-
     const setText = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
 
-    setText('detail-client',       row.dataset.client || '—');
-    setText('detail-dossier',      row.dataset.dossier || '—');
-    setText('detail-date',         row.dataset.date || '—');
-    setText('detail-statut',       row.dataset.statut || '—');
-    setText('detail-description',  row.dataset.description || '');
+    setText('detail-client',      row.dataset.client || '—');
+    setText('detail-dossier',     row.dataset.dossier || '—');
+    setText('detail-date',        row.dataset.date || '—');
+    setText('detail-statut',      row.dataset.statut || '—');
+    setText('detail-description', row.dataset.description || '');
 
     if (typ === 'forfait') {
-      setText('detail-debut', '—');
-      setText('detail-fin',   '—');
-      setText('detail-duree', '—');
-      setText('detail-taux',  '—');
+      setText('detail-debut','—'); setText('detail-fin','—');
+      setText('detail-duree','—'); setText('detail-taux','—');
     } else {
       setText('detail-debut', row.dataset.heure_debut || '—');
       setText('detail-fin',   row.dataset.heure_fin   || '—');
       setText('detail-duree', row.dataset.duree_heures ? row.dataset.duree_heures + ' h' : '—');
       setText('detail-taux',  row.dataset.taux_horaire ? row.dataset.taux_horaire + ' ' + unit : '—');
     }
-
     setText('detail-ht',  row.dataset.montant_ht  ? row.dataset.montant_ht  + ' ' + unit : '—');
     setText('detail-ttc', row.dataset.montant_ttc ? row.dataset.montant_ttc + ' ' + unit : '—');
 
@@ -333,15 +364,321 @@
     const modalEl = document.getElementById('detailTimesheetModal');
     if (modalEl && window.bootstrap?.Modal) new bootstrap.Modal(modalEl).show();
   }
-  // Rendre accessible pour un onclick HTML
   window.showTimesheetDetail = showTimesheetDetail;
 
+  // ---------------- Page init ----------------
   document.addEventListener('DOMContentLoaded', function () {
-    // --- DataTable (DEFINI ICI) ---
-    const table = $('#timesheetsTable').DataTable({
+    const $ = window.jQuery;
+    if (!$) return;
+    const $table = $('#timesheetsTable');
+    if (!$table.length) return;
+
+    // --- Mise en page 2 colonnes : gauche élargie au départ ---
+    const $host   = $table.parent();
+    const $layout = $('<div id="tsTwoPane" class="row g-3 align-items-start position-relative"></div>');
+    const $left   = $('<div id="clientsPane" class="col-12 col-lg-5 col-xl-4"></div>');
+    const $right  = $('<div id="tablePane"   class="col-12 col-lg-7 col-xl-8"></div>');
+    $layout.append($left, $right);
+    $host.prepend($layout);
+    $right.append($table);
+    
+    /* ====== TOPBAR PRO + CARTE TABLEAU ====== */
+
+    // 1) Barre de titre + actions
+    const $topbar = $(`
+      <div id="tsTopbar"
+          class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <h2 class="h4 m-0 text-primary d-flex align-items-center">
+          <i class="bi bi-clock-history me-2"></i> Gestion des Timesheets
+        </h2>
+        <div id="tsActions" class="d-flex align-items-center gap-2"></div>
+      </div>
+    `);
+    // insérer la topbar au-dessus des deux panneaux
+    $layout.before($topbar);
+
+    // 2) Déplacer le bouton "Ajouter un timesheet" dans la topbar (on réutilise le tien)
+    const $addBtn = $('[data-bs-target="#ajoutTimesheetModal"]').first();
+    if ($addBtn.length) {
+      $addBtn.removeClass('btn-lg shadow'); // style plus sobre
+      $addBtn.addClass('btn-success');
+      $('#tsActions').append($addBtn);
+    }
+    // (optionnel) tu peux ajouter d'autres actions dans #tsActions plus tard
+
+    // 3) Style “carte” pour le tableau côté droit
+    //   -> on enveloppe le wrapper DataTables dans une card pour un rendu clean
+    setTimeout(() => {
+      const $dtWrapNow = $('#timesheetsTable').closest('.dataTables_wrapper');
+      if ($dtWrapNow.length && !$dtWrapNow.parent().is('#tsTableCard')) {
+        $dtWrapNow.wrap('<div id="tsTableCard" class="card shadow-sm border-0"></div>');
+        $dtWrapNow.addClass('p-2');  // petit padding intérieur
+      }
+    }, 0);
+
+    // 4) Layout affiné (largeurs responsive plus pro)
+    $('#clientsPane').removeClass('col-lg-5 col-xl-4').addClass('col-12 col-lg-4 col-xl-3');
+    $('#tablePane').removeClass('col-lg-7 col-xl-8').addClass('col-12 col-lg-8 col-xl-9');
+
+    /* ====== CSS de finition ====== */
+    const proCSS = `
+      /* Topbar compacte et nette */
+      #tsTopbar { padding: .25rem .25rem 0; }
+
+      /* Carte du tableau : fond blanc sur ton fond vert */
+      #tsTableCard { background: #ffffff; border-radius: .5rem; }
+      #tsTableCard .dataTables_wrapper { padding: .5rem; }
+
+      /* Hauteurs cohérentes et espacements */
+      #clientsPane .card { margin-bottom: 0; }
+      #tablePane > #emptyState { margin: 0; }
+
+      /* Petite retouche du bouton flottant flèche si présent */
+      #clientsHandle { box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+    `;
+    $('<style id="ts-pro-polish">').text(proCSS).appendTo(document.head);
+
+    // --- Styles (inclut le mode replié + poignée) ---
+    $('<style>\
+      #tsTwoPane > [class*="col-"]{transition:all .25s ease}\
+      #clientsPane .card{position:sticky; top:.75rem}\
+      #clientsList .list-group-item{cursor:pointer}\
+      #clientsList .list-group-item.active{background:#e8f0ff; color:#0d6efd; border-color:#cfe2ff}\
+      #clientsBadge{font-size:.75rem}\
+      /* rail replié */\
+      #clientsPane.collapsed{flex:0 0 42px; max-width:42px}\
+      #clientsPane.collapsed .card{display:none}\
+      /* poignée */\
+      #clientsHandle{position:sticky; top:.75rem; z-index:5; width:36px; height:36px; border-radius:999px; \
+        display:flex; align-items:center; justify-content:center; background:#fff; border:1px solid #dee2e6; \
+        box-shadow:0 2px 8px rgba(0,0,0,.08); cursor:pointer}\
+      /* wrapper table : scroll horizontal propre */\
+      #tablePane .dataTables_wrapper{overflow-x:auto}\
+    </style>').appendTo(document.head);
+    
+    /* ===== Largeurs : Clients PLUS large / Tableau PLUS étroit ===== */
+
+    // LARGEURS CIBLE
+    const LEFT_WIDE   = 'col-12 col-lg-5 col-xl-4'; // ~41% (lg) / 33% (xl) -> plus large
+    const RIGHT_NARROW= 'col-12 col-lg-7 col-xl-8'; // ~59% (lg) / 67% (xl) -> plus étroit
+
+    // Nettoie d’éventuelles classes anciennes puis applique
+    $('#clientsPane')
+    .removeClass('col-lg-3 col-xl-2 col-lg-4 col-xl-3 col-lg-5 col-xl-4 collapsed') // nettoie
+    .addClass(LEFT_WIDE);
+
+    $('#tablePane')
+    .removeClass('col-12 col-lg-8 col-xl-9 col-lg-9 col-xl-10 col-lg-7 col-xl-8') // nettoie
+    .addClass(RIGHT_NARROW);
+
+    // Décale un peu le panneau droit vers le bas pour respirer
+    (() => {
+    const id = 'ts-spacing-fix';
+    if (!document.getElementById(id)) {
+      const css = `
+        #tablePane{ margin-top:.75rem; }
+        @media (min-width:1200px){ #tablePane{ margin-top:1rem; } }
+      `;
+      const style = document.createElement('style');
+      style.id = id; style.textContent = css; document.head.appendChild(style);
+    }
+    })();
+
+    /* ===== Poignée : repli / dépli avec ces nouvelles largeurs ===== */
+    function setWide(){
+    $('#clientsPane').removeClass('collapsed').addClass(LEFT_WIDE);
+    $('#tablePane').removeClass('col-12').addClass(RIGHT_NARROW);
+    $('#clientsHandle').text('‹').attr('title','Réduire la liste des clients');
+    }
+    function setCollapsed(){
+    $('#clientsPane').addClass('collapsed');       // rail fin à gauche
+    $('#tablePane').removeClass(RIGHT_NARROW).addClass('col-12'); // table pleine largeur
+    $('#clientsHandle').text('›').attr('title','Afficher la liste des clients');
+    }
+
+    // Remplace proprement toute ancienne version
+    window.togglePane = function(forceCollapse){
+    const shouldCollapse = (forceCollapse !== undefined)
+      ? !!forceCollapse
+      : !$('#clientsPane').hasClass('collapsed');
+    if (shouldCollapse) setCollapsed(); else setWide();
+    // recalcule DataTables si la table est visible
+    try { setTimeout(()=> dt?.columns?.adjust()?.draw(false), 0); } catch(_) {}
+    };
+
+    // Rebranche le clic de la poignée
+    $('#clientsHandle').off('click').on('click', ()=> window.togglePane());
+
+
+    // --- Agrégations clients pour la colonne gauche ---
+    const aggregate = new Map(); // name -> {count, heures, ht, ttc}
+    $('#timesheetsTable tbody tr.ts-row').each(function(){
+      const name   = this.dataset.client || '';
+      if (!name) return;
+      const heures = parseFloat((this.dataset.duree_heures || '0').replace(',', '.')) || 0;
+      const ht     = parseFloat((this.dataset.montant_ht   || '0').replace(',', '.')) || 0;
+      const ttc    = parseFloat((this.dataset.montant_ttc  || '0').replace(',', '.')) || 0;
+      const acc = aggregate.get(name) || { count:0, heures:0, ht:0, ttc:0 };
+      acc.count += 1; acc.heures += heures; acc.ht += ht; acc.ttc += ttc;
+      aggregate.set(name, acc);
+    });
+    const totalRows = Array.from(aggregate.values()).reduce((s,v)=>s+v.count,0);
+    const fmt = n => new Intl.NumberFormat('fr-FR').format(Math.round(n*100)/100);
+
+    // --- Poignée (flèche) + Carte Clients ---
+    const $handle = $('<button id="clientsHandle" class="btn btn-light btn-sm" aria-label="Réduire/afficher la liste">‹</button>');
+    const $card = $(`
+      <div class="card shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <strong>Clients</strong>
+          <span id="clientsBadge" class="badge bg-secondary">${aggregate.size}</span>
+        </div>
+        <div class="card-body p-2">
+          <input type="search" id="clientsFilter" class="form-control form-control-sm mb-2" placeholder="Filtrer un client…">
+          <ul id="clientsList" class="list-group list-group-flush small"></ul>
+        </div>
+      </div>
+    `);
+    $left.append($handle, $card);
+
+    const $list = $card.find('#clientsList');
+    $list.append(`<li class="list-group-item d-flex justify-content-between align-items-center active" data-name="__ALL__">
+                    <span>🟢 Tous les clients</span>
+                    <span class="badge bg-dark">${totalRows}</span>
+                  </li>`);
+    Array.from(aggregate.entries()).sort((a,b)=> a[0].localeCompare(b[0])).forEach(([name, v])=>{
+      $list.append(`
+        <li class="list-group-item d-flex justify-content-between align-items-center" data-name="${$('<div>').text(name).html()}">
+          <div class="me-2 text-truncate" title="${$('<div>').text(name).html()}">${$('<div>').text(name).html()}</div>
+          <div class="text-nowrap">
+            <span class="badge bg-primary me-1" title="# lignes">${v.count}</span>
+            <span class="badge bg-success me-1" title="HT">${fmt(v.ht)} FCFA</span>
+            <span class="badge bg-info text-dark" title="Heures">${fmt(v.heures)} h</span>
+          </div>
+        </li>`);
+    });
+    /* --- 1) Ajouter "Aucun client" + bouton Réinitialiser --- */
+    $list.prepend(`
+      <li id="clientsNone"
+          class="list-group-item d-flex justify-content-between align-items-center active"
+          data-name="__NONE__">
+        <span>🚫 Aucun client</span>
+        <span class="badge bg-secondary">—</span>
+      </li>
+    `);
+    $list.find('li[data-name="__ALL__"]').removeClass('active');  // "Aucun" devient l’état initial
+
+    // petit bouton pratique au-dessus du champ de filtre
+    $('<button type="button" id="resetClientsBtn" class="btn btn-sm btn-outline-secondary w-100 mb-2">↩ Réinitialiser</button>')
+      .insertBefore('#clientsFilter');
+  
+  
+    /* --- 2) Fonction de réinitialisation (retour à l’état de départ) --- */
+    function resetToInitial(){
+      // 2.1  enlever tout filtre côté DataTables
+      dt.column(COL_CLIENT).search('').draw();
+
+      // 2.2  remettre la sélection dans la liste
+      $('#clientsList li').removeClass('active');
+      $('#clientsNone').addClass('active');
+
+      // 2.3  masquer le tableau et ré-afficher le placeholder
+      $dtWrap.hide();
+      $placeholder.show();
+
+      // 2.4  ré-ouvrir le panneau de gauche (si replié)
+      $('#clientsPane').removeClass('collapsed');
+      $('#tablePane').removeClass('col-12').addClass('col-lg-7 col-xl-8');
+      $handle.text('‹').attr('title','Réduire la liste des clients');
+
+      // 2.5  recalage des colonnes si besoin
+      setTimeout(()=> dt.columns.adjust(), 0);
+    }
+
+    /* --- 3) Brancher le bouton et la touche ESC --- */
+    $('#resetClientsBtn').on('click', resetToInitial);
+    document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') resetToInitial(); });
+
+    /* --- 4) Étendre ton gestionnaire de clics sur la liste --- */
+    // (remplace ton gestionnaire existant ou adapte-le ainsi)
+    $('#clientsList').off('click').on('click', 'li', function(){
+      $('#clientsList li').removeClass('active');
+      $(this).addClass('active');
+
+      const name = this.dataset.name;
+
+      // cas 4.1 : retour à zéro
+      if (name === '__NONE__') {
+        resetToInitial();
+        return;
+      }
+
+      // cas 4.2 : tous les clients (tableau visible, sans filtre)
+      if (name === '__ALL__') {
+        showTablePaneOnce();
+        dt.column(COL_CLIENT).search('').draw();
+        return;
+      }
+
+      // cas 4.3 : un client précis (tableau visible + filtre)
+      showTablePaneOnce();
+      dt.column(COL_CLIENT).search('^' + escapeRegex(name) + '$', true, false).draw();
+    });
+
+     /* ===== Filtre clients robuste (accent-insensible) ===== */
+    /* ===== Filtre clients fiable (accent-insensible) ===== */
+  (function () {
+    // normalisation: minuscules, accents retirés, espaces compactés
+    const norm = s => (s || '')
+      .toString()
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    function applyClientsFilter(q) {
+      const needle = norm(q);
+      $('#clientsList .list-group-item').each(function () {
+        const $li = $(this);
+        const nameAttr = this.dataset.name || '';
+        // ces entrées restent visibles
+        if (nameAttr === '__NONE__' || nameAttr === '__ALL__') { $li.show(); return; }
+
+        // on cherche sur dataset + texte affiché (sécurité)
+        const hay = norm(nameAttr + ' ' + $li.text());
+        $li.toggle(needle === '' || hay.includes(needle));
+      });
+    }
+
+    // On enlève toute ancienne liaison puis on attache en délégué (robuste)
+    $(document)
+      .off('.clientsFilter') // retire input/search/keyup précédents si présents
+      .on('input.clientsFilter search.clientsFilter keyup.clientsFilter', '#clientsFilter', function (e) {
+        // Enter: si tu veux sélectionner automatiquement le 1er visible, décommente le bloc plus bas
+        applyClientsFilter(this.value);
+        
+        if (e.type === 'keyup' && e.key === 'Enter') {
+          const $first = $('#clientsList .list-group-item')
+            .filter(function(){
+              const n = this.dataset.name || '';
+              return n !== '__NONE__' && n !== '__ALL__' && $(this).is(':visible');
+            }).first();
+          if ($first.length) $first.click();
+        }
+        
+      });
+
+    // applique si l’input a déjà une valeur au chargement
+    const initVal = $('#clientsFilter').val();
+    if (initVal) applyClientsFilter(initVal);
+  })();
+
+    // --- DataTable (avec scroll horizontal pour éviter le débordement) ---
+    //    -> responsive désactivé pour un rendu stable + scrollX
+    const dt = $('#timesheetsTable').DataTable({
       autoWidth: false,
-      responsive: true,
-      // Boutons + Select → nécessite les extensions chargées
+      responsive: false,
+      scrollX: false,
       dom: 'frtip',
       buttons: ['excel', 'pdf', 'print'],
       select: { style: 'multi' },
@@ -355,20 +692,85 @@
       }
     });
 
-    // ------- Sélection & cases à cocher -------
-    const $container = $(table.table().container());
+    // Indice de la colonne "Client"
+    const ths2 = $table.find('thead th');
+    let COL_CLIENT = 0;
+    ths2.each(function(i){ if ($(this).text().trim().toLowerCase() === 'client') COL_CLIENT = i; });
 
+    // --- État vide au départ : on masque le tableau jusqu'au 1er clic ---
+    const $placeholder = $(`
+      <div id="emptyState" class="card shadow-sm border-0 bg-light-subtle">
+        <div class="card-body text-center py-5">
+          <div class="display-6 mb-2">👈</div>
+          <h5 class="mb-1">Sélectionnez un client</h5>
+          <p class="text-muted mb-0">Ses timesheets apparaîtront ici.</p>
+        </div>
+      </div>`);
+    $right.append($placeholder);
+
+    const $dtWrap = $('#timesheetsTable').closest('.dataTables_wrapper');
+    $dtWrap.hide();
+
+    function columnsFix(){ setTimeout(()=> dt.columns.adjust().draw(false), 0); }
+
+    // Poignée : bascule repli/affichage de la colonne de gauche
+    function togglePane(forceCollapse){
+      const collapsed = (forceCollapse !== undefined)
+        ? !!forceCollapse
+        : !$('#clientsPane').hasClass('collapsed');
+
+      if (collapsed) {
+        $('#clientsPane').addClass('collapsed');
+        $('#tablePane').removeClass('col-lg-7 col-xl-8').addClass('col-12');
+        $handle.text('›').attr('title','Afficher la liste des clients');
+      } else {
+        $('#clientsPane').removeClass('collapsed');
+        $('#tablePane').removeClass('col-12').addClass('col-lg-7 col-xl-8');
+        $handle.text('‹').attr('title','Réduire la liste des clients');
+      }
+      columnsFix();
+    }
+    $handle.on('click', ()=> togglePane()); // clic manuel
+
+    // Affiche le tableau (1ère fois) et replie la colonne gauche
+    function showTablePaneOnce(){
+      if ($dtWrap.is(':hidden')) {
+        $placeholder.hide();
+        $dtWrap.show();
+        columnsFix();
+      }
+      // Replie automatiquement pour faire de la place
+      togglePane(true);
+    }
+
+    // Clic sur un client
+    function escapeRegex(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+    $('#clientsList').on('click', 'li', function(){
+      $('#clientsList li').removeClass('active');
+      $(this).addClass('active');
+
+      const name = this.dataset.name;
+      showTablePaneOnce();
+
+      if (!name || name === '__ALL__') {
+        dt.column(COL_CLIENT).search('').draw();
+        return;
+      }
+      dt.column(COL_CLIENT).search('^' + escapeRegex(name) + '$', true, false).draw();
+    });
+
+    // ------- (Ton code de sélection & menu contextuel) -------
+    const $container = $(dt.table().container());
     function syncCheckboxes() {
-      table.rows({ page: 'current' }).every(function () {
+      dt.rows({ page: 'current' }).every(function () {
         const node = this.node();
         const cb = $(node).find('input.row-check').get(0);
         if (cb) cb.checked = this.selected();
       });
     }
-
     function updateCheckAllState() {
-      const total = table.rows({ search: 'applied' }).count();
-      const selected = table.rows({ search: 'applied', selected: true }).count();
+      const total = dt.rows({ search: 'applied' }).count();
+      const selected = dt.rows({ search: 'applied', selected: true }).count();
       const allChecked = (total > 0 && selected === total);
       const indet = (selected > 0 && selected < total);
       $container.find('thead input#check-all').each(function () {
@@ -376,37 +778,32 @@
         this.indeterminate = indet;
       });
     }
-
     $container.on('change', 'thead input#check-all', function () {
-      if (this.checked) table.rows({ search: 'applied' }).select();
-      else table.rows({ search: 'applied' }).deselect();
+      if (this.checked) dt.rows({ search: 'applied' }).select();
+      else dt.rows({ search: 'applied' }).deselect();
       syncCheckboxes(); updateCheckAllState();
     });
-
     $('#timesheetsTable tbody').on('click', 'input.row-check', function (e) {
       e.stopPropagation();
-      const row = table.row($(this).closest('tr'));
+      const row = dt.row($(this).closest('tr'));
       if (this.checked) row.select(); else row.deselect();
       updateCheckAllState();
     });
-
-    table.on('select deselect', function (e, dt, type, indexes) {
+    dt.on('select deselect', function (e, dtx, type, indexes) {
       if (type === 'row') {
         indexes.forEach(idx => {
-          const node = dt.row(idx).node();
+          const node = dtx.row(idx).node();
           const cb = $(node).find('input.row-check').get(0);
-          if (cb) cb.checked = dt.row(idx).selected();
+          if (cb) cb.checked = dtx.row(idx).selected();
         });
         updateCheckAllState();
       }
     });
+    dt.on('draw', function () { syncCheckboxes(); updateCheckAllState(); });
 
-    table.on('draw', function () { syncCheckboxes(); updateCheckAllState(); });
-
-    // ------- Menu clic droit -------
     $('#timesheetsTable tbody').on('contextmenu', 'tr', function (e) {
       e.preventDefault();
-      const row = table.row(this);
+      const row = dt.row(this);
       if (!row.selected()) {
         row.select();
         $(this).find('input.row-check').prop('checked', true);
@@ -417,15 +814,15 @@
     $(document).on('click', function () { $('#context-menu').hide(); });
 
     function needSelectionOrWarn(action) {
-      const count = table.rows({ selected: true }).count();
+      const count = dt.rows({ selected: true }).count();
       if (count === 0) { alert('Sélectionnez au moins un timesheet (cochez les cases) avant d’exporter.'); return; }
       action();
     }
-    $('#exportExcel').on('click', e => { e.preventDefault(); needSelectionOrWarn(() => table.button('.buttons-excel').trigger()); });
-    $('#exportPDF')  .on('click', e => { e.preventDefault(); needSelectionOrWarn(() => table.button('.buttons-pdf').trigger()); });
-    $('#printTable') .on('click', e => { e.preventDefault(); needSelectionOrWarn(() => table.button('.buttons-print').trigger()); });
+    $('#exportExcel').on('click', e => { e.preventDefault(); needSelectionOrWarn(() => dt.button('.buttons-excel').trigger()); });
+    $('#exportPDF')  .on('click', e => { e.preventDefault(); needSelectionOrWarn(() => dt.button('.buttons-pdf').trigger()); });
+    $('#printTable') .on('click', e => { e.preventDefault(); needSelectionOrWarn(() => dt.button('.buttons-print').trigger()); });
 
-    // ------- Formulaire d’ajout : affichage + calculs -------
+    // ------- Calculs formulaire (inchangé) -------
     const typeSelect     = document.getElementById('type_facturation');
     const rowHoraire     = document.querySelectorAll('.row-horaire');
     const rowForfait     = document.querySelectorAll('.row-forfait');
@@ -433,12 +830,10 @@
     const heureFin       = document.getElementById('heure_fin');
     const tauxHoraire    = document.getElementById('taux_horaire');
     const montantForfait = document.getElementById('montant_forfait');
-
     const selectedUnit = () => {
       const sel = document.getElementById('devise');
       return currencyLabelFrom(sel?.value || 'XOF');
     };
-
     function toggleFields() {
       const isForfait = typeSelect && typeSelect.value === 'forfait';
       rowHoraire.forEach(el => el.style.display = isForfait ? 'none' : '');
@@ -449,13 +844,11 @@
       if (montantForfait)  montantForfait.required  =  isForfait;
       calculerDureeEtMontants();
     }
-
     function calculerDureeEtMontants() {
       const tvaSelect = document.getElementById('tva_applicable');
       const tvaVal = tvaSelect?.options[tvaSelect.selectedIndex]?.value;
       const tvaRate = 0.18;
       const unit = selectedUnit();
-
       const set = (id, txt) => { const el = document.getElementById(id); if (el) el.innerText = txt; };
 
       if (typeSelect && typeSelect.value === 'forfait') {
@@ -463,29 +856,21 @@
         if (forfait > 0) {
           const ht = forfait;
           const ttc = (tvaVal === 'oui') ? Math.round(ht * (1 + tvaRate) * 100) / 100 : ht;
-          set('duree_affichee', "—");
-          set('montant_ht',  ht.toFixed(2)  + " " + unit);
-          set('montant_ttc', ttc.toFixed(2) + " " + unit);
+          set('duree_affichee', "—"); set('montant_ht',  ht.toFixed(2)  + " " + unit); set('montant_ttc', ttc.toFixed(2) + " " + unit);
           return;
         }
-        set('duree_affichee', "-"); set('montant_ht', "-"); set('montant_ttc', "-");
-        return;
+        set('duree_affichee', "-"); set('montant_ht', "-"); set('montant_ttc', "-"); return;
       }
-
-      const debut = heureDebut?.value;
-      const fin   = heureFin?.value;
+      const debut = heureDebut?.value, fin = heureFin?.value;
       const taux  = parseFloat(tauxHoraire?.value?.replace(',', '.') || '0') || 0;
-
       if (debut && fin && taux >= 0) {
         const [h1, m1] = debut.split(':').map(Number);
         const [h2, m2] = fin.split(':').map(Number);
-        let dureeMin = (h2 * 60 + m2) - (h1 * 60 + m1);
-        if (dureeMin < 0) dureeMin += 24 * 60;
-        const dureeH = Math.round((dureeMin / 60) * 100) / 100;
-
+        let dureeMin = (h2*60+m2) - (h1*60+m1);
+        if (dureeMin < 0) dureeMin += 24*60;
+        const dureeH = Math.round((dureeMin/60)*100)/100;
         const ht  = Math.round(dureeH * taux * 100) / 100;
         const ttc = (tvaVal === 'oui') ? Math.round(ht * (1 + tvaRate) * 100) / 100 : ht;
-
         set('duree_affichee', dureeH.toFixed(2) + " h");
         set('montant_ht',  ht.toFixed(2)  + " " + unit);
         set('montant_ttc', ttc.toFixed(2) + " " + unit);
@@ -493,30 +878,53 @@
         set('duree_affichee', "-"); set('montant_ht', "-"); set('montant_ttc', "-");
       }
     }
-
     if (typeSelect) typeSelect.addEventListener('change', toggleFields);
     ['heure_debut','heure_fin','taux_horaire','montant_forfait','tva_applicable','devise'].forEach(id => {
-      const el = document.getElementById(id);
-      if (!el) return;
+      const el = document.getElementById(id); if (!el) return;
       const evt = (id === 'tva_applicable' || id === 'devise') ? 'change' : 'input';
       el.addEventListener(evt, calculerDureeEtMontants);
     });
+    toggleFields(); calculerDureeEtMontants();
+  (function () {
+  const css = `
+    /* th du tableau principal ET th du header cloné (scrollX) */
+    #tablePane .dataTables_wrapper table.dataTable > thead > tr > th,
+    #tablePane .dataTables_wrapper div.dataTables_scrollHead table.dataTable > thead > tr > th{
+      font-size: 10px !important;   /* ajuste 9–12 px selon ton goût */
+      padding: 3px 6px !important;
+      line-height: 1.05 !important;
+      vertical-align: middle !important;
+      white-space: nowrap !important;
+    }
 
-    // Init
-    toggleFields();
-    calculerDureeEtMontants();
-
-    // Disparition auto des flashs
+    /* Pseudo-icônes de tri DataTables (Bootstrap) plus petites & rapprochées */
+    #tablePane .dataTables_wrapper table.dataTable > thead .sorting:before,
+    #tablePane .dataTables_wrapper table.dataTable > thead .sorting_asc:before,
+    #tablePane .dataTables_wrapper table.dataTable > thead .sorting_desc:before,
+    #tablePane .dataTables_wrapper table.dataTable > thead .sorting:after,
+    #tablePane .dataTables_wrapper table.dataTable > thead .sorting_asc:after,
+    #tablePane .dataTables_wrapper table.dataTable > thead .sorting_desc:after{
+      font-size: .6rem !important;
+      right: .25rem !important;
+    }
+  `;
+  const style = document.createElement('style');
+  style.id = 'ts-headers-only-compact';
+  style.textContent = css;
+  document.head.appendChild(style);
+})();
+    // Auto-hide flashs
     setTimeout(() => {
-      const alerts = document.querySelectorAll('#flash-messages .alert');
-      alerts.forEach(el => {
+      document.querySelectorAll('#flash-messages .alert').forEach(el => {
         el.classList.remove('show'); el.classList.add('fade');
         setTimeout(() => el.remove(), 500);
       });
     }, 5000);
   });
 })();
-</script>
 
+</script>
 {% endblock %}
+
+
 

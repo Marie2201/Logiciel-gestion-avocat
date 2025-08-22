@@ -49,16 +49,18 @@
 
     <!-- Ligne 2 : 2 dernières cartes -->
     <div class="row g-4 mb-5">
-        <!-- Montant Facturé (TTC) -->
-        <div class="col-lg-6 col-md-6 col-sm-12">
-            <div class="card dashboard-card bg-gradient-info shadow-lg">
-                <div class="card-body position-relative">
-                    <i class="bi bi-piggy-bank card-icon"></i>
-                    <h5 class="card-title">Montant Facturé (TTC)</h5>
-                    <p class="card-value">{{ "{:,.2f}".format(montant_total_facture_ttc) }} FCFA</p>
-                </div>
-            </div>
+    {# Montant Facturé (TTC) — visible seulement si autorisé #}
+    {% if is_admin %}
+    <div class="col-lg-6 col-md-6 col-sm-12">
+        <div class="card dashboard-card bg-gradient-info shadow-lg">
+        <div class="card-body position-relative">
+            <i class="bi bi-piggy-bank card-icon"></i>
+            <h5 class="card-title">Montant Facturé (TTC)</h5>
+            <p class="card-value">{{ "{:,.2f}".format(montant_total_facture_ttc) }} FCFA</p>
         </div>
+        </div>
+    </div>
+    {% endif %}
 
         <!-- Timesheets à facturer -->
         <div class="col-lg-6 col-md-6 col-sm-12">

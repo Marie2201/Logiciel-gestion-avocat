@@ -9,6 +9,8 @@ from dotenv import load_dotenv
 from flask_mail import Mail
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from flask_talisman import Talisman
+from werkzeug.exceptions import RequestEntityTooLarge
+from flask import redirect, request, flash, url_for
 
 # ----- ENV -----
 load_dotenv()
@@ -30,11 +32,15 @@ app.config['DEBUG'] = True
 app.config['SQLALCHEMY_ECHO'] = True
 app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'static', 'uploads')
 app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = False
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 
 # ✅ NE PAS fixer SERVER_NAME en local (garde-le pour la prod via .env)
 # app.config["SERVER_NAME"] = os.getenv("SERVER_NAME")  # ex: "app.myhouda.com"
 # app.config["PREFERRED_URL_SCHEME"] = os.getenv("PREFERRED_URL_SCHEME", "https")
-
+@app.errorhandler(RequestEntityTooLarge)
+def handle_413(e):
+    flash("Fichier trop volumineux. Limite : 100 Mo.", "danger")
+    return redirect(request.referrer or url_for('documents'))
 # ----- Helpers ENV -----
 def getenv_clean(key, default=""):
     return os.getenv(key, default).strip().strip('"').strip("'")

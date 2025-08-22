@@ -4,7 +4,7 @@ from wtforms.validators import DataRequired, Optional, Email, NumberRange, Lengt
 from wtforms.fields import EmailField
 from wtforms_sqlalchemy.fields import QuerySelectField
 from datetime import date
-from app.models import Dossier
+from app.models import Dossier, Client
 from flask_wtf.file import FileField, FileAllowed, FileRequired
 
 #formulaire timesheet
@@ -44,7 +44,8 @@ class TimesheetForm(FlaskForm):
                          validators=[DataRequired()], default='XOF')
 
     description = TextAreaField('Description', validators=[Optional()])
-    dossier_id = SelectField('Dossier', coerce=int, validators=[DataRequired()])
+    dossier_id = SelectField('Dossier', coerce=int, validators=[DataRequired()],
+                             choices=[], render_kw={'class': 'form-select select2-ajax'})
     submit = SubmitField('Enregistrer')
 
     def validate(self, extra_validators=None):
@@ -91,9 +92,10 @@ class DossierForm(FlaskForm):
     nom = StringField("Nature du dossier", validators=[DataRequired()])
     description = TextAreaField('Description')
     date_ouverture = DateField("Date d'ouverture", validators=[DataRequired()])
-    procedure = SelectField("Procédures", choices=[('1ère Instance', '1ère Instance'), ('Appel', 'Appel'), ('Cassation', 'Cassation'), ('Conseil/Consultance','Conseil/Consultance')], validators=[DataRequired()])
+    procedures = StringField("Procédures", validators=[Optional(), Length(max=1000)])
     statut = SelectField("Statut", choices=[('En cours', 'En cours'), ('Clôturé', 'Clôturé')], validators=[DataRequired()])
-    client_id = SelectField("Client", coerce=int, validators=[DataRequired()])
+    client_id = SelectField("Client", coerce=int, validators=[DataRequired()],
+                            choices=[], render_kw={'class': 'form-select select2-ajax'})
     user_id = SelectField('Attribuer à', coerce=int, choices=[])
     submit = SubmitField("Enregistrer")
 
@@ -184,9 +186,9 @@ class AttributionForm(FlaskForm):
 
 
 class ChangerReferentForm(FlaskForm):
-    dossier_id = HiddenField('Dossier', validators=[DataRequired()])
     nouveau_referent = SelectField('Nouveau référent', coerce=int, validators=[DataRequired()])
-    submit = SubmitField('Enregistrer')
+    motif = StringField('Motif (optionnel)')
+    submit = SubmitField('Changer')
 
 #changement de mot de passe
 class ChangePasswordForm(FlaskForm):

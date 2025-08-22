@@ -25,7 +25,7 @@ class Dossier(db.Model):
     nom = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=True)
     date_ouverture = db.Column(db.Date, nullable=False)
-    procedure = db.Column(db.String(50), nullable=False)
+    procedures = db.Column(db.Text, nullable=True)
     statut = db.Column(db.String(50), nullable=False)
     supprimé = db.Column(db.Boolean, default=False)
     client_id = db.Column(db.Integer, db.ForeignKey('client.id'), nullable=False)
@@ -174,7 +174,7 @@ class AttributionHistorique(db.Model):
     nouveau_referent_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     date_attribution = db.Column(db.DateTime, default=datetime.utcnow)
     auteur_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-
+    motif = db.Column(db.String(255), nullable=True)
     dossier = db.relationship('Dossier', backref='historique_attributions', lazy=True)
     ancien_referent = db.relationship('User', foreign_keys=[ancien_referent_id])
     nouveau_referent = db.relationship('User', foreign_keys=[nouveau_referent_id])

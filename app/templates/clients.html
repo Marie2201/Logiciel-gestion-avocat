@@ -10,7 +10,7 @@
             </button>
         </div>
 
-        <table id="timesheetsTable" 
+        <table id="clientsTable" 
                class="table table-striped table-bordered table-hover table-responsive rounded w-100 overflow-hidden" 
                style="background-color: #ffffff; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);">
 
@@ -170,119 +170,172 @@
 </div>    
 {% endblock %}
 
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+<!-- DataTables + Responsive + Buttons (optionnels mais recommandés) -->
+<link  href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css" rel="stylesheet">
+<link  href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css" rel="stylesheet">
+<link  href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css" rel="stylesheet">
+<script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
+
+<!-- Bootstrap 5 (bundle = Popper inclus) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 {% block scripts %}
 <script>
-$(document).ready(function () {
-    const table = $('#clientsTable').DataTable({
+(function () {
+  const log = (...a) => console.log("[CLIENTS UI]", ...a);
+
+  // Vérifs de base
+  if (!window.jQuery) { console.error("jQuery manquant"); return; }
+  const $ = window.jQuery;
+
+  const $table = $('#clientsTable');
+  if (!$table.length) { console.error("#clientsTable introuvable dans le DOM"); return; }
+
+  // --- Barre de recherche + zone boutons (toujours visibles) ---
+  if (!$('#clientsToolbar').length) {
+    $table.before(`
+      <div id="clientsToolbar" class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div class="input-group" style="max-width:360px;">
+          <span class="input-group-text">🔍</span>
+          <input type="search" id="clientsSearch" class="form-control" placeholder="Rechercher un client…">
+          <button class="btn btn-outline-secondary" id="clientsSearchClear" type="button" title="Effacer">&times;</button>
+        </div>
+        <div id="clientsButtons" class="text-md-end"></div>
+      </div>
+    `);
+  }
+
+  // --- DataTables (si présent), sinon fallback ---
+  const hasDT = !!$.fn.DataTable;
+  const hasButtons = hasDT && !!($.fn.dataTable && $.fn.dataTable.Buttons);
+  let dt = null;
+
+  if (hasDT) {
+    try {
+      dt = $table.DataTable({
         autoWidth: false,
         responsive: true,
-        dom: 'frtip',
-        buttons: [
-            {
-                extend: 'excelHtml5',
-                text: '<i class="bi bi-file-earmark-excel"></i> Exporter Excel',
-                filename: 'clients_excel',
-                exportOptions: {
-                    columns: [0, 1, 2, 3]
-                }
-            },
-            {
-                extend: 'pdfHtml5',
-                text: '<i class="bi bi-file-pdf"></i> Exporter PDF',
-                filename: 'clients_pdf',
-                orientation: 'landscape',
-                pageSize: 'A4',
-                exportOptions: {
-                    columns: [0, 1, 2, 3]
-                }
-            },
-            {
-                extend: 'print',
-                text: '<i class="bi bi-printer"></i> Imprimer',
-                exportOptions: {
-                    columns: [0, 1, 2, 3]
-                }
-            }
-        ],
+        searching: true,
+        dom: "rt" + "<'row align-items-center mt-3'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
         language: {
-            search: "🔍 Rechercher :",
-            lengthMenu: "",
-            info: "",
-            infoEmpty: "",
-            paginate: {
-                previous: "Précédent",
-                next: "Suivant"
-            },
-            zeroRecords: "Aucun client trouvé"
-        }
+          zeroRecords: "Aucun client trouvé",
+          paginate: { previous: "Précédent", next: "Suivant" },
+          info: ""
+        },
+        buttons: hasButtons ? [
+          { extend: 'excelHtml5', text: '<i class="bi bi-file-earmark-excel"></i> Exporter Excel', filename: 'clients_excel', exportOptions: { columns: [0,1,2,3] } },
+          { extend: 'pdfHtml5',   text: '<i class="bi bi-file-pdf"></i> Exporter PDF',             filename: 'clients_pdf', orientation: 'landscape', pageSize: 'A4', exportOptions: { columns: [0,1,2,3] } },
+          { extend: 'print',      text: '<i class="bi bi-printer"></i> Imprimer',                  exportOptions: { columns: [0,1,2,3] } }
+        ] : []
+      });
+      if (hasButtons) dt.buttons().container().appendTo('#clientsButtons');
+      log("DataTables OK", { rows: dt.rows().count(), buttons: hasButtons });
+    } catch (e) {
+      console.error("Échec init DataTables:", e);
+    }
+  } else {
+    log("DataTables non chargé → mode fallback");
+  }
+
+  // --- Recherche (DataTables ou fallback) ---
+  $('#clientsSearch').on('input', function () {
+    const q = this.value;
+    if (dt) dt.search(q).draw();
+    else {
+      const needle = q.trim().toLowerCase();
+      $table.find('tbody tr').each(function () {
+        const text = $(this).text().toLowerCase();
+        $(this).toggle(text.indexOf(needle) !== -1);
+      });
+    }
+  });
+  $('#clientsSearchClear').on('click', function () {
+    $('#clientsSearch').val('').trigger('input').trigger('focus');
+  });
+
+  // --- Utilitaire pour lignes "child" de DT Responsive ---
+  function parentRow($tr) { return $tr.hasClass('child') ? $tr.prev('tr') : $tr; }
+
+  // --- Double-clic pour ouvrir la modale détails (fallback sûr) ---
+  $('#clientsTable tbody').on('dblclick', 'tr', function () {
+    const $tr = parentRow($(this));
+    const clientId = $tr.data('id') || $tr.attr('data-id');
+    if (!clientId) { alert("ID client manquant sur la ligne."); log("Ligne sans data-id:", this); return; }
+
+    fetch(`/client/${clientId}`)
+      .then(r => r.json())
+      .then(data => {
+        $('#detail-societe').text(data.societe || '');
+        $('#detail-email').text(data.email || '');
+        $('#detail-telephone').text(data.telephone || '');
+        $('#detail-adresse').text(data.adresse || '');
+        const $list = $('#detail-dossiers').empty();
+        (data.dossiers || []).forEach(d => $list.append(`<li class="list-group-item">${d.nom} (${d.statut || ''})</li>`));
+        if (!$list.children().length) $list.append('<li class="list-group-item text-muted">Aucun dossier associé</li>');
+
+        $('#editClientLink').attr('href', '/clients/modifier/' + clientId);
+        $('#deleteClientForm').attr('action', '/clients/supprimer/' + clientId);
+        $('#voirDossiersBtn').attr('href', '/dossiers?client_id=' + clientId);
+
+        const modalEl = document.getElementById('detailClientModal');
+        if (modalEl) new bootstrap.Modal(modalEl).show();
+        else alert("Modale #detailClientModal introuvable dans le DOM.");
+      })
+      .catch(err => { console.error(err); alert("Erreur lors du chargement du client."); });
+  });
+
+  // --- Menu contextuel + export (fallback si Buttons absent) ---
+  $('#clientsTable tbody').on('contextmenu', 'tr', function (e) {
+    e.preventDefault();
+    const $menu = $('#context-menu');
+    if (!$menu.length) { log("#context-menu introuvable"); return; }
+    $menu.css({ top: e.pageY, left: e.pageX, position: 'absolute', display: 'block' });
+  });
+  $(document).on('click', () => $('#context-menu').hide());
+
+  $('#exportExcel').on('click', function (e) {
+    e.preventDefault();
+    if (dt && hasButtons) dt.button('.buttons-excel').trigger();
+    else alert("Export Excel indisponible (extension Buttons non chargée).");
+  });
+  $('#exportPDF').on('click', function (e) {
+    e.preventDefault();
+    if (dt && hasButtons) dt.button('.buttons-pdf').trigger();
+    else alert("Export PDF indisponible (extension Buttons non chargée).");
+  });
+  $('#printTable').on('click', function (e) {
+    e.preventDefault();
+    if (dt && hasButtons) dt.button('.buttons-print').trigger();
+    else window.print();
+  });
+
+  // --- Petits styles utiles ---
+  $('<style>#clientsTable tbody tr{cursor:pointer} #clientsToolbar .input-group-text{min-width:2.5rem; justify-content:center}</style>').appendTo(document.head);
+
+  // --- Auto-hide des flashs ---
+  setTimeout(() => {
+    document.querySelectorAll('#flash-messages .alert').forEach(el => {
+      el.classList.remove('show'); el.classList.add('fade');
+      setTimeout(() => el.remove(), 500);
     });
+  }, 5000);
 
-    $('.client-row').on('dblclick', function () {
-        const clientId = $(this).data('id');
-
-        // Chargement dynamique via API
-        fetch(`/client/${clientId}`)
-            .then(response => response.json())
-            .then(data => {
-                $('#detail-societe').text(data.societe);
-                $('#detail-email').text(data.email);
-                $('#detail-telephone').text(data.telephone);
-                $('#detail-adresse').text(data.adresse);
-
-                // Remplit la liste des dossiers
-                const dossierList = $('#detail-dossiers');
-                dossierList.empty();
-
-                if (data.dossiers && data.dossiers.length > 0) {
-                    data.dossiers.forEach(d => {
-                        dossierList.append(`<li class="list-group-item">${d.nom} (${d.statut})</li>`);
-                    });
-                } else {
-                    dossierList.append('<li class="list-group-item text-muted">Aucun dossier associé</li>');
-                }
-
-                // Met à jour les liens
-                $('#editClientLink').attr('href', '/clients/modifier/' + clientId);
-                $('#deleteClientForm').attr('action', '/clients/supprimer/' + clientId);
-                $('#voirDossiersBtn').attr('href', '/dossiers?client_id=' + clientId);
-
-                $('#detailClientModal').modal('show');
-            });
-    });
-
-    $('#clientsTable tbody').on('contextmenu', 'tr', function (e) {
-        e.preventDefault();
-        $('#context-menu').css({ top: e.pageY + 'px', left: e.pageX + 'px' }).show();
-    });
-
-    $(document).on('click', function () {
-        $('#context-menu').hide();
-    });
-
-    $('#exportExcel').on('click', function (e) {
-        e.preventDefault();
-        table.button('.buttons-excel').trigger();
-    });
-
-    $('#exportPDF').on('click', function (e) {
-        e.preventDefault();
-        table.button('.buttons-pdf').trigger();
-    });
-
-    $('#printTable').on('click', function (e) {
-        e.preventDefault();
-        table.button('.buttons-print').trigger();
-    });
-
-    setTimeout(() => {
-        const alerts = document.querySelectorAll('#flash-messages .alert');
-        alerts.forEach(el => {
-            el.classList.remove('show');
-            el.classList.add('fade');
-            setTimeout(() => el.remove(), 500);
-        });
-    }, 5000);
-});
+  // --- Diagnostics finaux ---
+  log("READY", {
+    jQuery: $.fn.jquery,
+    hasDT, hasButtons,
+    rowsInDOM: $table.find('tbody tr').length
+  });
+})();
 </script>
 {% endblock %}

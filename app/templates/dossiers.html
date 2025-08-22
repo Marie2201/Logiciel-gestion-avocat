@@ -2,84 +2,94 @@
 
 {% block content %}
 <div class="container mt-4">
-    <div class="container py-4 px-4 rounded shadow-sm" style="background-color: #e8f5e9;">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 class="text-success"><i class="bi bi-folder2-open"></i> Gestion des Dossiers</h2>
-            <div class="d-flex gap-2">
-                <button class="btn btn-success shadow" data-bs-toggle="modal" data-bs-target="#ajoutDossierModal">
-                    <i class="bi bi-plus-circle"></i> Ajouter un dossier
-                </button>
-                <a href="{{ url_for('documents') }}" class="btn btn-outline-primary">
-                    <i class="bi bi-paperclip"></i> Ajouter un document
-                </a>
-            </div>
-        </div>
-        <table id="dossiersTable" class="table table-bordered table-hover rounded shadow w-100 overflow-hidden" style="background-color: #ffffff;">
-            <thead class="table-success text-dark">
-                <tr>
-                    <th>ID Dossier</th>
-                    <th>Nature du dossier</th>
-                    <th>Client</th>
-                    <th>Date d'ouverture</th>
-                    <th>Procédures</th>
-                    <th>Référent</th>
-                    <th>Statut</th>
-                    <th>Description</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for dossier in dossiers %}
-                <tr class="dossier-row"
-                    data-id="{{ dossier.id }}"
-                    data-numero="{{ dossier.numero }}"
-                    data-nom="{{ dossier.nom }}"
-                    data-client="{{ dossier.client.societe }}"
-                    data-date="{{ dossier.date_ouverture.strftime('%d/%m/%Y') }}"
-                    data-procedure="{{ dossier.procedure }}"
-                    data-referent="{{ dossier.referent.nom if dossier.referent else 'Non attribué' }}"
-                    data-statut="{{ dossier.statut }}"
-                    data-description="{{ dossier.description }}">
-                    
-                    <td>{{ dossier.numero }}</td>
-                    <td>{{ dossier.nom }}</td>
-                    <td>{{ dossier.client.societe }}</td>
-                    <td>{{ dossier.date_ouverture.strftime('%d/%m/%Y') }}</td>
-                    <td>{{ dossier.procedure }}</td>
-                    <td>
-                        {% if dossier.referent %}
-                            {{ dossier.referent.nom }}
-                        {% else %}
-                            <span class="text-muted">Non attribué</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if dossier.statut == 'En cours' %}
-                            <span class="badge bg-warning text-dark">⏳ En cours</span>
-                        {% elif dossier.statut == 'Terminé' %}
-                            <span class="badge bg-success">✔️ Terminé</span>
-                        {% else %}
-                            <span class="badge bg-secondary">{{ dossier.statut }}</span>
-                        {% endif %}
-                    </td>
-                    <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                        {{ dossier.description }}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <!--<div id="calendar" style="height: 600px;"></div>-->
+  <div class="container py-4 px-4 rounded shadow-sm" style="background-color: #e8f5e9;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2 class="text-success"><i class="bi bi-folder2-open"></i> Gestion des Dossiers</h2>
+      <div class="d-flex gap-2">
+        <button class="btn btn-success shadow" data-bs-toggle="modal" data-bs-target="#ajoutDossierModal">
+          <i class="bi bi-plus-circle"></i> Ajouter un dossier
+        </button>
+        <a href="{{ url_for('documents') }}" class="btn btn-outline-primary">
+          <i class="bi bi-paperclip"></i> Ajouter un document
+        </a>
+      </div>
     </div>
+
+    <table id="dossiersTable" class="table table-bordered table-hover rounded shadow w-100 overflow-hidden" style="background-color:#ffffff;">
+      <thead class="table-success text-dark">
+        <tr>
+          <th>ID Dossier</th>
+          <th>Nature du dossier</th>
+          <th>Client</th>
+          <th>Date d'ouverture</th>
+          <th class="wrap">Procédures</th>
+          <th>Référent</th>
+          <th>Statut</th>
+          <th class="wrap">Description</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for dossier in dossiers %}
+        <tr class="dossier-row"
+            data-id="{{ dossier.id }}"
+            data-numero="{{ dossier.numero }}"
+            data-nom="{{ dossier.nom }}"
+            data-client="{{ dossier.client.societe }}"
+            data-date="{{ dossier.date_ouverture.strftime('%d/%m/%Y') }}"
+            data-procedure="{{ dossier.procedure }}"
+            data-referent="{{ dossier.referent.nom if dossier.referent else 'Non attribué' }}"
+            data-statut="{{ dossier.statut }}"
+            data-description="{{ dossier.description }}">
+          <td>{{ dossier.numero }}</td>
+          <td>{{ dossier.nom }}</td>
+          <td>{{ dossier.client.societe }}</td>
+          <td>{{ dossier.date_ouverture.strftime('%d/%m/%Y') }}</td>
+          <td class="wrap">{{ dossier.procedures or '—' }}</td>
+          <td>
+            {% if dossier.referent %}
+              {{ dossier.referent.nom }}
+            {% else %}
+              <span class="text-muted">Non attribué</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if dossier.statut == 'En cours' %}
+              <span class="badge bg-warning text-dark">⏳ En cours</span>
+            {% elif dossier.statut == 'Terminé' %}
+              <span class="badge bg-success">✔️ Terminé</span>
+            {% else %}
+              <span class="badge bg-secondary">{{ dossier.statut }}</span>
+            {% endif %}
+          </td>
+          <td class="wrap" style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+            {{ dossier.description }}
+          </td>
+          <td>
+            <button type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    data-bs-toggle="modal"
+                    data-bs-target="#histModal-{{ dossier.id }}">
+              Historique
+            </button>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
-<div id="context-menu" class="shadow rounded" style="display: none; position: absolute; z-index: 9999; background-color: white; border: 1px solid #ccc; padding: 5px;">
-    <ul class="list-unstyled m-0">
-        <li><a href="#" id="exportExcel" class="dropdown-item"><i class="bi bi-file-earmark-excel"></i> Exporter Excel</a></li>
-        <li><a href="#" id="exportPDF" class="dropdown-item"><i class="bi bi-file-pdf"></i> Exporter PDF</a></li>
-        <li><a href="#" id="printTable" class="dropdown-item"><i class="bi bi-printer"></i> Imprimer</a></li>
-    </ul>
+{# Menu contextuel #}
+<div id="context-menu" class="shadow rounded" style="display:none; position:absolute; z-index:9999; background-color:#fff; border:1px solid #ccc; padding:5px;">
+  <ul class="list-unstyled m-0">
+    <li><a href="#" id="exportExcel" class="dropdown-item"><i class="bi bi-file-earmark-excel"></i> Exporter Excel</a></li>
+    <li><a href="#" id="exportPDF" class="dropdown-item"><i class="bi bi-file-pdf"></i> Exporter PDF</a></li>
+    <li><a href="#" id="printTable" class="dropdown-item"><i class="bi bi-printer"></i> Imprimer</a></li>
+  </ul>
 </div>
 
+{# Modale d’ajout dossier #}
 <div class="modal fade" id="ajoutDossierModal" tabindex="-1" aria-labelledby="ajoutDossierLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -90,343 +100,294 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body row g-3">
-            <div class="col-md-6">{{ form.numero.label(class="form-label") }}{{ form.numero(class="form-control") }}</div>
-            <div class="col-md-6">{{ form.nom.label(class="form-label") }}{{ form.nom(class="form-control") }}</div>
-            <div class="col-md-6">{{ form.date_ouverture.label(class="form-label") }}{{ form.date_ouverture(class="form-control") }}</div>
-            <div class="col-md-6">{{ form.procedure.label(class="form-label") }}{{ form.procedure(class="form-select") }}</div>
-            <div class="col-md-6">{{ form.statut.label(class="form-label") }}{{ form.statut(class="form-select") }}</div>
-            <div class="col-md-6">{{ form.client_id.label(class="form-label") }}{{ form.client_id(class="form-select") }}</div>
-            <div class="mb-3">
-                <label for="user_id" class="form-label">Attribuer à</label>
-                {{ form.user_id(class="form-select") }}
-            </div>
-            <div class="col-md-12">{{ form.description.label(class="form-label") }}{{ form.description(class="form-control", rows="2") }}</div>
+          <div class="col-md-6">{{ form.numero.label(class="form-label") }}{{ form.numero(class="form-control") }}</div>
+          <div class="col-md-6">{{ form.nom.label(class="form-label") }}{{ form.nom(class="form-control") }}</div>
+          <div class="col-md-6">{{ form.date_ouverture.label(class="form-label") }}{{ form.date_ouverture(class="form-control") }}</div>
+          <div class="col-md-6">{{ form.procedures.label(class="form-label") }}{{ form.procedures(class="form-control") }}{% if form.procedures.errors %}
+          <div class="invalid-feedback d-block">{{ form.procedures.errors[0] }}{% endif %}</div>
+          <div class="col-md-6">{{ form.statut.label(class="form-label") }}{{ form.statut(class="form-select") }}</div>
+          <div class="col-md-6">{{ form.client_id.label(class="form-label") }}{{ form.client_id(class="form-select select2-ajax") }}</div>
+          <div class="mb-3">
+            <label for="user_id" class="form-label">Attribuer à</label>
+            {{ form.user_id(class="form-select") }}
+          </div>
+          <div class="col-md-12">{{ form.description.label(class="form-label") }}{{ form.description(class="form-control", rows="2") }}</div>
         </div>
         <div class="modal-footer">
-            {{ form.submit(class="btn btn-primary") }}
+          {{ form.submit(class="btn btn-primary") }}
         </div>
       </form>
     </div>
   </div>
 </div>
+
+{# Modale DÉTAIL dossier (ouverte au double-clic) #}
 <div class="modal fade" id="detailDossierModal" tabindex="-1" aria-labelledby="detailDossierLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header bg-info text-white">
-        <h5 class="modal-title">Détail du Dossier</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body row g-3">
-        <div class="col-md-6">
-          <div class="card shadow-sm border-light h-100">
-            <div class="card-body">
-              <h6 class="card-title text-primary"><i class="bi bi-info-circle me-2"></i>Informations Principales</h6>
-              <hr>
-              <p><strong>ID Dossier :</strong> <span id="detail-numero"></span></p>
-              <p><strong>Nature :</strong> <span id="detail-nom"></span></p>
-              <p><strong>Client :</strong> <span id="detail-client"></span></p>
-              <p><strong>Date d'ouverture :</strong> <span id="detail-date"></span></p>
-              <p><strong>Procédures :</strong> <span id="detail-procedure"></span></p>
-              <p><strong>Référent :</strong> <span id="detail-referent"></span></p>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-6">
-          <div class="card shadow-sm border-light h-100">
-            <div class="card-body">
-              <h6 class="card-title text-primary"><i class="bi bi-bar-chart-line me-2"></i>Statut</h6>
-              <hr>
-              <p><strong>Statut :</strong> <span id="detail-statut"></span></p>
-              <p class="text-muted small mt-3"><i class="bi bi-exclamation-circle me-1"></i>Le statut indique l'avancement du dossier.</p>
-            </div>
-          </div>
-        </div>
-        <div class="col-12">
-          <div class="card shadow-sm border-light">
-            <div class="card-body">
-              <h6 class="card-title text-primary"><i class="bi bi-paperclip me-2"></i>Documents associés</h6>
-              <ul id="detail-documents" class="list-group mb-0"><li class="list-group-item text-muted">Chargement...</li></ul>
-            </div>
-          </div>
-        </div>
-        <div class="col-12">
-          <div class="card shadow-sm border-light">
-            <div class="card-body">
-              <h6 class="card-title text-primary"><i class="bi bi-text-left me-2"></i>Description Détaillée</h6>
-              <hr>
-              <p id="detail-description" class="text-muted fst-italic"></p>
-            </div>
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header bg-info text-white">
+      <h5 class="modal-title">Détail du Dossier</h5>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+    </div>
+    <div class="modal-body row g-3">
+      <div class="col-md-6">
+        <div class="card shadow-sm border-light h-100">
+          <div class="card-body">
+            <h6 class="card-title text-primary"><i class="bi bi-info-circle me-2"></i>Informations Principales</h6>
+            <hr>
+            <p><strong>ID Dossier :</strong> <span id="detail-numero"></span></p>
+            <p><strong>Nature :</strong> <span id="detail-nom"></span></p>
+            <p><strong>Client :</strong> <span id="detail-client"></span></p>
+            <p><strong>Date d'ouverture :</strong> <span id="detail-date"></span></p>
+            <p><strong>Procédures :</strong> <span id="detail-procedure"></span></p>
+            <p><strong>Référent :</strong> <span id="detail-referent"></span></p>
           </div>
         </div>
       </div>
-      <div class="modal-footer">
-        <a id="editDossierLink" class="btn btn-outline-primary">Modifier</a>
-        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal">Supprimer</button>
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+      <div class="col-md-6">
+        <div class="card shadow-sm border-light h-100">
+          <div class="card-body">
+            <h6 class="card-title text-primary"><i class="bi bi-bar-chart-line me-2"></i>Statut</h6>
+            <hr>
+            <p><strong>Statut :</strong> <span id="detail-statut"></span></p>
+            <p class="text-muted small mt-3"><i class="bi bi-exclamation-circle me-1"></i>Le statut indique l'avancement du dossier.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="card shadow-sm border-light">
+          <div class="card-body">
+            <h6 class="card-title text-primary"><i class="bi bi-text-left me-2"></i>Description Détaillée</h6>
+            <hr>
+            <p id="detail-description" class="text-muted fst-italic"></p>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
+    <div class="modal-footer">
+      <a id="editDossierLink" class="btn btn-outline-primary">Modifier</a>
+      <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal">Supprimer</button>
+      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+    </div>
+  </div></div>
 </div>
 
-{# Modal de confirmation de suppression (remplace confirm()) #}
-<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteLabel" aria-hidden="true">
-    <div class="modal-dialog modal-sm">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="confirmDeleteLabel">Confirmer la suppression</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
-            </div>
-            <div class="modal-body">
-                Êtes-vous sûr de vouloir supprimer ce dossier ? Cette action est irréversible.
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                <form id="deleteDossierForm" method="POST" style="display:inline;">
-                    {{ delete_form.hidden_tag() }}
-                    <button type="submit" class="btn btn-danger">Supprimer</button>
-                </form>
-            </div>
-        </div>
+{# === Modales HISTORIQUE (hors du tableau), une par dossier === #}
+{% for dossier in dossiers %}
+<div class="modal fade" id="histModal-{{ dossier.id }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header bg-light">
+      <h5 class="modal-title">Historique d'attribution — {{ dossier.numero or dossier.id }}</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
     </div>
+    <div class="modal-body">
+      {% set hist = hist_map.get(dossier.id, []) %}
+      {% if hist %}
+        <ul class="list-group">
+        {% for h in hist %}
+          <li class="list-group-item">
+            <div class="fw-semibold">
+              {{ h.date_attribution.strftime('%d/%m/%Y %H:%M') }}
+              — par {{ h.auteur.nom if h.auteur else 'N/A' }}
+            </div>
+            <div>
+              De <em>{{ h.ancien_referent.nom if h.ancien_referent else '—' }}</em>
+              à <strong>{{ h.nouveau_referent.nom if h.nouveau_referent else 'N/A' }}</strong>
+            </div>
+            {% if h.motif %}<div class="text-muted small mt-1">Motif : {{ h.motif }}</div>{% endif %}
+          </li>
+        {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-muted fst-italic">Aucun historique d’attribution pour ce dossier.</p>
+      {% endif %}
+    </div>
+  </div></div>
+</div>
+{% endfor %}
+
+{# Modale confirmation suppression #}
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteLabel" aria-hidden="true">
+  <div class="modal-dialog modal-sm"><div class="modal-content">
+    <div class="modal-header bg-danger text-white">
+      <h5 class="modal-title" id="confirmDeleteLabel">Confirmer la suppression</h5>
+      <button type="button" class="btn btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+    </div>
+    <div class="modal-body">
+      Êtes-vous sûr de vouloir supprimer ce dossier ? Cette action est irréversible.
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+      <form id="deleteDossierForm" method="POST" style="display:inline;">
+        {{ delete_form.hidden_tag() }}
+        <button type="submit" class="btn btn-danger">Supprimer</button>
+      </form>
+    </div>
+  </div></div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<!--<link href="https://cdn.jsdelivr.net/npm/fullcalendar@3.2.0/dist/fullcalendar.min.css" rel="stylesheet" />
 
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@3.2.0/dist/fullcalendar.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@3.2.0/dist/locale/fr.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.min.js"></script>
--->
 <script>
-let currentDossierId = null;
+(function () {
+  const $table = $('#dossiersTable');
 
-$(document).ready(function () {
-  const csrfToken = $('meta[name="csrf-token"]').attr('content');
-
-  const table = $('#dossiersTable').DataTable({
-    autoWidth: false,
-    responsive: true,
-    dom: 'frtip',
-    language: {
-      search: "🔍 Rechercher :",
-      zeroRecords: "Aucun dossier trouvé",
-      paginate: { previous: "Précédent", next: "Suivant" }
-    }
-  });
-
-  // --- Charge la liste des documents dans la modale ---
-  async function loadDossierDocuments(dossierId) {
-    const $list    = $('#detail-documents');
-    $list.empty().append('<li class="list-group-item text-muted">Chargement...</li>');
-
-    try {
-      const res = await fetch(`/dossier/${dossierId}`, { credentials: 'include' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-
-      // Remplir (si tu as ces éléments dans la modale)
-      $('#detail-nom').text(data.nom || '');
-      $('#detail-description').text(data.description || '');
-      $('#detail-statut').html($('#detail-statut').html()); // on touche pas à ton badge
-
-      // Documents
-      $list.empty();
-      if (!data.documents || data.documents.length === 0) {
-        $list.append('<li class="list-group-item text-muted">Aucun document pour ce dossier.</li>');
-        return;
+  if (!$.fn.DataTable.isDataTable($table)) {
+    $table.DataTable({
+      autoWidth: false,
+      responsive: true,
+      dom: 'frtip',
+      language: {
+        search: "🔍 Rechercher :",
+        zeroRecords: "Aucun dossier trouvé",
+        paginate: { previous: "Précédent", next: "Suivant" }
       }
+    });
+  }
+  
 
-      for (const d of data.documents) {
-        $list.append(`
-          <li class="list-group-item d-flex justify-content-between align-items-center">
-            <span class="text-truncate" style="max-width:70%">${d.nom_fichier}</span>
-            <a class="btn btn-sm btn-outline-primary" href="${d.url}" target="_blank" rel="noopener">Ouvrir</a>
-          </li>
-        `);
-      }
-    } catch (e) {
-      console.error(e);
-      $list.empty().append('<li class="list-group-item text-danger">Impossible de charger les documents.</li>');
-    }
+  function parentRow($tr) {
+    return $tr.hasClass('child') ? $tr.prev('tr') : $tr;
   }
 
-  // --- Détails du dossier au double-clic (délégation pour DataTables) ---
-  $('#dossiersTable tbody').on('dblclick', 'tr.dossier-row', function () {
-    const row = this.dataset;    // nécessite data-* sur <tr>
+  function openDetailFromRow($tr) {
+    const el = $tr.get(0);
+    if (!el) return;
 
-    currentDossierId = row.id;
+    const tds = $tr.find('td');
+    const numero    = el.dataset.numero    || (tds.eq(0).text().trim());
+    const nom       = el.dataset.nom       || (tds.eq(1).text().trim());
+    const client    = el.dataset.client    || (tds.eq(2).text().trim());
+    const date      = el.dataset.date      || (tds.eq(3).text().trim());
+    const procedure = el.dataset.procedure || (tds.eq(4).text().trim());
+    const referent  = el.dataset.referent  || (tds.eq(5).text().trim());
+    const statut    = el.dataset.statut    || (tds.eq(6).text().trim());
+    const descr     = el.dataset.description || '';
 
-    // Renseigne les champs déjà présents
-    $('#detail-numero').text(row.numero);
-    $('#detail-nom').text(row.nom);
-    $('#detail-client').text(row.client);
-    $('#detail-date').text(row.date);
-    $('#detail-procedure').text(row.procedure);
-    $('#detail-referent').text(row.referent);
-    $('#detail-description').text(row.description);
-    $('#editDossierLink').attr('href', '/dossiers/modifier/' + row.id);
-    $('#deleteDossierForm').attr('action', '/dossiers/supprimer/' + row.id);
+    $('#detail-numero').text(numero);
+    $('#detail-nom').text(nom);
+    $('#detail-client').text(client);
+    $('#detail-date').text(date);
+    $('#detail-procedure').text(procedure);
+    $('#detail-referent').text(referent);
+    $('#detail-description').text(descr);
 
-    const badge = row.statut === 'En cours'
-      ? `<span class="badge bg-warning text-dark">⏳ En cours</span>`
-      : row.statut === 'Terminé'
-        ? `<span class="badge bg-success">✔️ Terminé</span>`
-        : `<span class="badge bg-secondary">${row.statut}</span>`;
+    const id = el.dataset.id;
+    if (id) {
+      $('#editDossierLink').attr('href', '/dossiers/modifier/' + id);
+      $('#deleteDossierForm').attr('action', '/dossiers/supprimer/' + id);
+    }
+
+    const badge = (statut === 'En cours')
+      ? '<span class="badge bg-warning text-dark">⏳ En cours</span>'
+      : (statut === 'Terminé')
+        ? '<span class="badge bg-success">✔️ Terminé</span>'
+        : `<span class="badge bg-secondary">${statut}</span>`;
     $('#detail-statut').html(badge);
 
-    // >>> CHARGER LES DOCUMENTS <<<
-    loadDossierDocuments(row.id);
+    const modalEl = document.getElementById('detailDossierModal');
+    if (modalEl) new bootstrap.Modal(modalEl).show();
+  }
 
-    new bootstrap.Modal(document.getElementById('detailDossierModal')).show();
+  // Empêche la ligne d’ouvrir la modale détail quand on clique sur le bouton « Historique »
+  $table.on('click', 'button[data-bs-target^="#histModal-"]', function (e) {
+    e.stopPropagation();
   });
 
-  // --- Menu contextuel
-  $('#dossiersTable tbody').on('contextmenu', 'tr', function (e) {
+  // Double-clic (avec fallback simple clic)
+  let clickTimer = null;
+  const CLICK_DELAY = 220;
+
+  $table.on('click', 'tbody tr', function (e) {
+    if ($(e.target).closest('button,[data-bs-toggle],a').length) return;
+    clearTimeout(clickTimer);
+    const $tr = parentRow($(this));
+    clickTimer = setTimeout(() => openDetailFromRow($tr), CLICK_DELAY);
+  });
+
+  $table.on('dblclick', 'tbody tr', function (e) {
+    if ($(e.target).closest('button,[data-bs-toggle],a').length) return;
+    clearTimeout(clickTimer);
+    const $tr = parentRow($(this));
+    openDetailFromRow($tr);
+  });
+
+  // Menu contextuel
+  $table.on('contextmenu', 'tbody tr', function (e) {
     e.preventDefault();
     $('#context-menu').css({ top: e.pageY + 'px', left: e.pageX + 'px' }).show();
   });
   $(document).on('click', () => $('#context-menu').hide());
-  $('#exportExcel').on('click', () => table.button('.buttons-excel').trigger());
-  $('#exportPDF').on('click', () => table.button('.buttons-pdf').trigger());
-  $('#printTable').on('click', () => table.button('.buttons-print').trigger());
+  
 
-    
-    // --- FullCalendar partagé 
-    /*$('#calendar').fullCalendar({
-    locale:         'fr',
-    firstDay:       1,
-    header: {
-        left:   'prev,next today',
-        center: 'title',
-        right:  'month,agendaWeek,agendaDay'
-    },
-    defaultView: 'agendaWeek',
-    selectable:     true,
-    selectHelper:   true,
-    editable:       true,
-    eventLimit:     true,
-    views: {
-        month: {eventLimit: 4},
-        agendaWeek: {eventLimit: false},
-        agendaDay: {eventLimit: false}
-    },
-    timezone: 'local',
-    timeFormat:     'H:mm',
-    slotLabelFormat: 'H:mm',
-    slotDuration:   '00:30:00',
-    minTime:        '08:00:00',
-    maxTime:        '19:00:00',
-    allDaySlot:     true,
-    scrollTime:     '00:00:00',
+  // Curseur
+  $('<style>#dossiersTable tbody tr{cursor:pointer}</style>').appendTo(document.head);
+})();
 
-    // ← on remplace eventSources par events:function()
-    events: function(start, end, timezone, callback) {
-        // Charge dossiers ET réunions
-        $.when(
-        $.getJSON('/api/events'),        // dossiers
-        $.getJSON('/api/calendar/events')    // réunions
-        ).done(function(dossiersResp, calResp){
-        const dossiers = dossiersResp[0];
-        const reunions = calResp[0];
+(function () {
+  // ===== Compact mode pour #dossiersTable (corps + en-têtes) =====
+  (function compactDossiersTable() {
+    const css = `
+      /* Corps : police + paddings réduits */
+      #dossiersTable.compact tbody td{
+        font-size:12px !important;
+        padding:4px 6px !important;
+        line-height:1.1 !important;
+        white-space:nowrap;                /* garde fin, comme pour timesheets */
+      }
 
-        console.log('📥 /api/events →', dossiers);
-        console.log('📥 /api/calendar/events →', reunions);
+      /* Badges plus petits (Statut, etc.) */
+      #dossiersTable.compact .badge{
+        font-size:10px !important;
+        padding:.15rem .35rem !important;
+      }
 
-        const all = dossiers.concat(reunions);
-        console.log('✅ Tous les events →', all);
+      /* En-têtes uniquement (comme demandé) */
+      #dossiersTable.compact thead th{
+        font-size:10px !important;
+        padding:3px 6px !important;
+        line-height:1.05 !important;
+        vertical-align:middle !important;
+        white-space:nowrap !important;
+      }
+      /* Icônes de tri (Bootstrap/DataTables) plus fines + rapprochées */
+      #dossiersTable.dataTable thead th.sorting,
+      #dossiersTable.dataTable thead th.sorting_asc,
+      #dossiersTable.dataTable thead th.sorting_desc{
+        padding-right:14px !important;
+        background-size:9px 9px !important;
+        background-position:right 4px center !important;
+      }
+      #dossiersTable thead .sorting:before,
+      #dossiersTable thead .sorting_asc:before,
+      #dossiersTable thead .sorting_desc:before,
+      #dossiersTable thead .sorting:after,
+      #dossiersTable thead .sorting_asc:after,
+      #dossiersTable thead .sorting_desc:after{
+        font-size:.6rem !important;
+        right:.25rem !important;
+      }
 
-        callback(all);
-        }).fail(function(err){
-        console.error('Erreur chargement événements', err);
-        });
-    },
-
-    // selection pour créer un RDV
-    select: function(start, end) {
-        $('#eventTitle').val('');
-        $('#eventStart').val(start.format('YYYY-MM-DDTHH:mm'));
-        $('#eventEnd').val(end.format('YYYY-MM-DDTHH:mm'));
-        $('#eventDescription').val('');
-        $('#addEventModal').modal('show');
-    },
-
-
-    eventRender: function(event, element) {
-        // Ajoute un attribut "title" pour le tooltip
-        if (event.description) {
-            element.attr('title', event.description);
-        }
-        // Initialise le tooltip une fois que l'élément a été rendu
-        element.tooltip({
-            container: 'body',
-            trigger: 'hover',
-            placement: 'top'
-        });
-    },
-    
-    // clic pour supprimer une réunion (événements dossiers ont id en "d123")
-    eventClick: function(ev) {
-        if (typeof ev.id === 'string' && ev.id.startsWith('d')) {
-        return; // dossier → on ne fait rien
-        }
-        if (confirm('Supprimer cet événement ?')) {
-        $.ajax({
-            url:    '/api/calendar/events/' + ev.id,
-            method: 'DELETE',
-            success: function() {
-            $('#calendar').fullCalendar('refetchEvents');
-            },
-            error: function(xhr) {
-            alert('Impossible de supprimer : ' + xhr.statusText);
-            }
-        });
-        }
+      /* Optionnel : autoriser l'enroulement d'une colonne si tu mets class="wrap" */
+      #dossiersTable.compact .wrap{
+        white-space:normal !important;
+        max-width:260px;
+      }
+    `;
+    if (!document.getElementById('dossiers-compact-css')) {
+      const style = document.createElement('style');
+      style.id = 'dossiers-compact-css';
+      style.textContent = css;
+      document.head.appendChild(style);
     }
-    });
 
-    // --- Gestion du formulaire d’ajout d’événement ---
-    // (déconnecte puis reconnecte ton handler pour être sûr qu’il n’y ait qu’un seul binding)
-    $('#addEventForm').off('submit').on('submit', function(e){
-        e.preventDefault();
-        const payload = {
-            title: $('#eventTitle').val(),
-            start: $('#eventStart').val(),
-            end:   $('#eventEnd').val(),
-            description : $('#eventDescription').val()
-        };
-        $.ajax({
-            url:          '/api/calendar/events',
-            method:       'POST',
-            contentType: 'application/json',
-            headers: {
-            'X-CSRFToken': csrfToken     // <— ici
-        },
-            data:         JSON.stringify(payload),
-            success: function() {
-            $('#addEventModal').modal('hide');
-            $('#calendar').fullCalendar('refetchEvents');
-            },
-            error: function(xhr) {
-            alert('Erreur à l’enregistrement : ' + xhr.responseText);
-            }
-        });
-    }); */
+    // Active le mode compact + recalage colonnes si la DataTable est prête
+    const tbl = document.getElementById('dossiersTable');
+    if (tbl) tbl.classList.add('compact');
+    try { setTimeout(() => $('#dossiersTable').DataTable().columns.adjust().draw(false), 0); } catch(e) {}
+  })();
+})();
 
 
-    // Supprimer les alertes flash automatiquement
-    setTimeout(() => {
-        document.querySelectorAll('#flash-messages .alert').forEach(el => {
-            el.classList.remove('show');
-            el.classList.add('fade');
-            setTimeout(() => el.remove(), 500);
-        });
-    }, 5000);
-
-});
 </script>
 {% endblock %}

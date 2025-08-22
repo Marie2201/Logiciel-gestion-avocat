@@ -21,7 +21,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
-
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
     <style>
         body { background-color: #f8f9fa; }
 
@@ -95,6 +95,18 @@
             margin-left:8px;border:none;background:#fff;color:#0d6efd;
             padding:6px 10px;border-radius:999px;cursor:pointer
         }
+        .brand-houda{ position: relative; display: inline-block; }
+        .brand-sub{
+        position: absolute;
+        top: 90%;            /* juste sous "Houda" */
+        left: 0.5;
+        margin-top: .15rem;   /* petit espace */
+        font-size: .5em;      /* plus petit que le titre */
+        line-height: 1;
+        text-transform: lowercase;
+        color: rgba(255, 255, 255, 0.85); /* lisible sur fond sombre */
+        }
+
     </style>
 </head>
 
@@ -106,15 +118,19 @@
             {% if current_user.is_authenticated %}
             <!-- Sidebar visible uniquement si connecté -->
             <nav class="col-md-2 sidebar">
-                <h4 class="text-white mb-4">MyHouda</h4>
+                <h4 class="text-white mb-4 brand-title">
+                My<span class="brand-houda">Houda<span class="brand-sub">Sénégal</span></span>
+                </h4>
+
                 <ul class="nav flex-column">
-                    <li class="nav-item"><a class="nav-link" href="/"><i class="bi bi-speedometer2 me-2"></i>Tableau de bord</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('dashboard') }}"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+                    <!--<li class="nav-item"><a class="nav-link" href="/"><i class="bi bi-speedometer2 me-2"></i>Tableau de bord</a></li>-->
                     <li class="nav-item"><a class="nav-link" href="/clients"><i class="bi bi-people-fill me-2"></i>Clients</a></li>
                     <li class="nav-item"><a class="nav-link" href="/dossiers"><i class="bi bi-folder-fill me-2"></i>Dossiers</a></li>
                     <li class="nav-item"><a class="nav-link" href="/timesheets"><i class="bi bi-stopwatch-fill me-2"></i>Timesheets</a></li>
                     <li class="nav-item"><a class="nav-link" href="/factures"><i class="bi bi-receipt-cutoff me-2"></i>Factures</a></li>
                     <li class="nav-item"><a class="nav-link" href="/utilisateurs"><i class="bi bi-person-lines-fill me-2"></i>Utilisateurs</a></li>
-
+                    
                     <li class="nav-item mt-5">
                         <div class="dropdown">
                             <a class="nav-link dropdown-toggle text-white" href="#" role="button" id="profilMenu" data-bs-toggle="dropdown" aria-expanded="false" title="{{ current_user.nom }}">
@@ -165,7 +181,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 
-    {% block scripts %}
+        {% block scripts %}
         {{ moment.include_moment() }}
         {{ moment.locale('fr') }}
     {% endblock %}
@@ -192,13 +208,12 @@
     // SW + PWA install prompt + update bar
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(reg => {
-        // Update workflow
         function showUpdate(registration) {
           const bar = document.getElementById('updatePwa');
           const btn = document.getElementById('reloadPwa');
           if (!bar || !btn) return;
           bar.style.display = 'inline-flex';
-          btn.onclick = () => { registration.waiting.postMessage({ type: 'SKIP_WAITING' }); };
+          btn.onclick = () => { registration.waiting?.postMessage({ type: 'SKIP_WAITING' }); };
         }
         if (reg.waiting) showUpdate(reg);
         reg.addEventListener('updatefound', () => {
@@ -211,33 +226,104 @@
         navigator.serviceWorker.addEventListener('controllerchange', () => { window.location.reload(); });
       });
 
-      // Install prompt
       let deferredPrompt;
       window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        const btn = document.getElementById('installBtn');
-        if (btn) btn.hidden = false;
+        e.preventDefault(); deferredPrompt = e;
+        const btn = document.getElementById('installBtn'); if (btn) btn.hidden = false;
       });
       document.addEventListener('DOMContentLoaded', () => {
-        const btn = document.getElementById('installBtn');
-        if (!btn) return;
+        const btn = document.getElementById('installBtn'); if (!btn) return;
         btn.addEventListener('click', async () => {
           btn.hidden = true;
-          if (deferredPrompt) {
-            deferredPrompt.prompt();
-            await deferredPrompt.userChoice;
-            deferredPrompt = null;
-          } else {
-            alert("Dans Edge : menu ⋯ → Applications → Installer ce site comme une application.");
-          }
+          if (deferredPrompt) { deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt = null; }
+          else { alert("Dans Edge : menu ⋯ → Applications → Installer ce site comme une application."); }
         });
       });
-      window.addEventListener('appinstalled', () => {
-        const btn = document.getElementById('installBtn');
-        if (btn) btn.hidden = true;
-      });
+      window.addEventListener('appinstalled', () => { const btn = document.getElementById('installBtn'); if (btn) btn.hidden = true; });
     }
     </script>
+
+    <style>
+    /* Harmonise avec Bootstrap */
+    .select2-container .select2-selection--single { height: 38px; }
+    .select2-container--default .select2-selection--single .select2-selection__rendered { line-height: 38px; }
+    .select2-container--default .select2-selection--single .select2-selection__arrow { height: 36px; }
+    </style>
+
+    <!-- Charge Select2 UNE seule fois (avec bust cache pour le SW) -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js?v=4"></script>
+
+    <script>
+    // Init Select2 "classique" si tu utilises encore .select2 quelque part
+    document.addEventListener('DOMContentLoaded', function () {
+        $('.select2').select2({
+        width: '100%',
+        placeholder: 'Rechercher…',
+        allowClear: true,
+        language: 'fr'
+        });
+    });
+
+    // Init Select2 AJAX robuste
+    (function(){
+        function initSelect2Ajax(ctx){
+        const $ctx = $(ctx || document);
+
+        if (typeof $.fn.select2 !== 'function') {
+            console.error('Select2 non chargé'); 
+            return;
+        }
+        console.debug('[Select2] init select2-ajax dans', ctx === document ? 'document' : ctx);
+
+        $ctx.find('.select2-ajax').each(function(){
+            const $el = $(this);
+            const ajaxUrl = $el.data('ajax_url');
+            if (!ajaxUrl) { console.warn('select2-ajax sans data-ajax_url', this); return; }
+
+            // Parent = modale si présente, sinon body (évite le dropdown caché)
+            const $modal = $el.closest('.modal');
+            const dropdownParent = $modal.length ? $modal : $(document.body);
+
+            // Détruit une éventuelle instance précédente pour éviter les états bizarres
+            if ($el.hasClass('select2-hidden-accessible')) {
+            try { $el.select2('destroy'); } catch(e){}
+            }
+
+            $el.select2({
+            width: '100%',
+            placeholder: ($el.data('placeholder') || 'Rechercher…'),
+            allowClear: true,
+            minimumInputLength: 1,   // Mets 1/0 pour tester; tu pourras repasser à 2
+            language: 'fr',
+            ajax: {
+                url: ajaxUrl,
+                dataType: 'json',
+                delay: 250,
+                cache: true,
+                data: params => ({ q: params.term || '', page: params.page || 1 }),
+                processResults: (data) => ({
+                results: (data && data.results) || [],
+                pagination: { more: data && data.pagination && data.pagination.more }
+                })
+            },
+            dropdownParent: dropdownParent
+            });
+        });
+        }
+
+        document.addEventListener('DOMContentLoaded', function(){
+        initSelect2Ajax();
+        // Si champs dans des modales => ré-init à l’ouverture
+        $(document).on('shown.bs.modal', function(e){ initSelect2Ajax(e.target); });
+        // Focus auto sur la zone de recherche quand le menu s’ouvre
+        $(document).on('select2:open', () => {
+            const inp = document.querySelector('.select2-container--open .select2-search__field');
+            if (inp) inp.focus();
+        });
+        });
+    })();
+    </script>
+
 </body>
 </html>
+
