@@ -25,7 +25,6 @@
           <th class="wrap">Procédures</th>
           <th>Référent</th>
           <th>Statut</th>
-          <th>Description</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -62,9 +61,7 @@
               <span class="badge bg-secondary">{{ dossier.statut }}</span>
             {% endif %}
           </td>
-          <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-            {{ dossier.description }}
-          </td>
+          
           <td>
             <button type="button"
                     class="btn btn-outline-secondary btn-sm"
