@@ -1,60 +1,68 @@
+{# templates/modifier_facture.html #}
 {% extends "base.html" %}
 
 {% block content %}
 <div class="container mt-4">
-    <h2 class="text-primary mb-4"><i class="bi bi-pencil-square me-2"></i>Modifier la Facture</h2>
-    <form method="POST">
-        {{ form.hidden_tag() }} {# Inclut le jeton CSRF #}
-        <div class="row g-3">
-            <div class="col-md-6">
-                {{ form.date.label(class="form-label") }}
-                {{ form.date(class="form-control") }}
-                {% for error in form.date.errors %}
-                    <div class="text-danger">{{ error }}</div>
-                {% endfor %}
-            </div>
-            <div class="col-md-6">
-                {{ form.dossier.label(class="form-label") }}
-                {{ form.dossier(class="form-select") }}
-                {% for error in form.dossier.errors %}
-                    <div class="text-danger">{{ error }}</div>
-                {% endfor %}
-            </div>
-            <div class="col-md-4">
-                {{ form.montant_ht.label(class="form-label") }}
-                {{ form.montant_ht(class="form-control") }}
-                {% for error in form.montant_ht.errors %}
-                    <div class="text-danger">{{ error }}</div>
-                {% endfor %}
-            </div>
-            <div class="col-md-4">
-                {{ form.montant_ttc.label(class="form-label") }}
-                {{ form.montant_ttc(class="form-control") }}
-                {% for error in form.montant_ttc.errors %}
-                    <div class="text-danger">{{ error }}</div>
-                {% endfor %}
-            </div>
-            <div class="col-md-4">
-                {{ form.statut.label(class="form-label") }}
-                {{ form.statut(class="form-select") }}
-                {% for error in form.statut.errors %}
-                    <div class="text-danger">{{ error }}</div>
-                {% endfor %}
-            </div>
-            {# Si tu as une description
-            <div class="col-12">
-                {{ form.description.label(class="form-label") }}
-                {{ form.description(class="form-control", rows="3") }}
-                {% for error in form.description.errors %}
-                    <div class="text-danger">{{ error }}</div>
-                {% endfor %}
-            </div>
-            #}
+  <h2 class="text-primary mb-4">
+    <i class="bi bi-pencil-square me-2"></i>Modifier la Facture
+  </h2>
+
+  <form id="editFactureForm" method="POST"
+        action="{{ url_for('modifier_facture', facture_id=facture.id) }}">
+    {{ form.hidden_tag() }}
+
+    <div class="row g-3">
+      <div class="col-md-6">
+        {{ form.date.label(class="form-label") }}
+        {{ form.date(class="form-control") }}
+        {% for error in form.date.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+      </div>
+
+      <div class="col-md-6">
+        {{ form.dossier.label(class="form-label") }}
+        {{ form.dossier(class="form-select") }}
+        {% for error in form.dossier.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+      </div>
+
+      <div class="col-md-4">
+        {{ form.montant_ht.label(class="form-label") }}
+        {{ form.montant_ht(class="form-control") }}
+        {% for error in form.montant_ht.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+      </div>
+
+      <div class="col-md-4">
+        {{ form.montant_ttc.label(class="form-label") }}
+        {{ form.montant_ttc(class="form-control") }}
+        {% for error in form.montant_ttc.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+      </div>
+
+      <div class="col-md-4">
+        {{ form.devise.label(class="form-label") }}
+        {{ form.devise(class="form-select") }}
+        {% for error in form.devise.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+      </div>
+
+      <div class="col-md-4">
+        {{ form.statut.label(class="form-label") }}
+        {{ form.statut(class="form-select") }}
+        {% for error in form.statut.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+      </div>
+
+      <div class="col-md-4 d-flex align-items-center">
+        <div class="form-check mt-4">
+          {{ form.tva_applicable(class="form-check-input", id="tvaChk") }}
+          <label for="tvaChk" class="form-check-label">TVA applicable</label>
         </div>
-        <div class="mt-4">
-            {{ form.submit(class="btn btn-primary me-2") }}
-            <a href="{{ url_for('factures') }}" class="btn btn-secondary">Annuler</a>
-        </div>
-    </form>
+        {% for error in form.tva_applicable.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <button type="submit" class="btn btn-success">
+        Enregistrer les modifications
+      </button>
+      <a href="{{ url_for('factures') }}" class="btn btn-secondary ms-2">Annuler</a>
+    </div>
+  </form>
 </div>
 {% endblock %}

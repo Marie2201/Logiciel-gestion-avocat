@@ -21,11 +21,18 @@ class Dossier(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     annee = db.Column(db.Integer, nullable=False) 
     sequence = db.Column(db.Integer, nullable=False)
-    numero = db.Column(db.String(20), nullable=False, unique=True) 
+    numero = db.Column(db.String(20), nullable=False) 
     nom = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=True)
     date_ouverture = db.Column(db.Date, nullable=False)
     procedures = db.Column(db.Text, nullable=True)
+    __table_args__ = (
+        # Empêche seulement les vrais doublons (facultatif, mais conseillé)
+        db.UniqueConstraint('client_id', 'numero', 'procedures',
+                            name='uq_dossier_client_numero_procedure'),
+        # petit index utile pour la recherche par numéro
+        db.Index('ix_dossier_numero', 'numero'),
+    )
     statut = db.Column(db.String(50), nullable=False)
     supprimé = db.Column(db.Boolean, default=False)
     client_id = db.Column(db.Integer, db.ForeignKey('client.id'), nullable=False)
@@ -37,9 +44,9 @@ class Dossier(db.Model):
     supprimé = db.Column(Boolean, default=False)
 
 
-    __table_args__ = (
-        db.UniqueConstraint('annee', 'sequence', name='uq_dossier_annee_sequence'),
-    )
+    # __table_args__ = (
+    #     db.UniqueConstraint('annee', 'sequence', name='uq_dossier_annee_sequence'),
+    # )
     def compute_numero(self):
         # "13.897/25" → points tous les 3 chiffres + "/YY"
         seq = f"{self.sequence:,}".replace(",", ".")   # groupement par milliers avec des points

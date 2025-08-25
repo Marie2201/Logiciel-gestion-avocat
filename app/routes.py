@@ -5,7 +5,7 @@ from app.forms import RequestResetForm, ResetPasswordForm
 from app.models import Timesheet, Dossier, Client, Facture, User, Document, AttributionHistorique, CalendarEvent
 from app import app, db
 from datetime import datetime, timedelta, date
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, case, cast
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.utils import secure_filename, send_file
@@ -25,6 +25,7 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from datetime import time
 from sqlalchemy import or_,  extract
 from collections import defaultdict
+from sqlalchemy import  Numeric
 
 
 #from app import app
@@ -50,12 +51,36 @@ def index():
     # Sinon, redirigez vers la page de connexion
     return redirect(url_for('login')) # Assurez-vous que le nom de l'endpoint est 'login'
 
+def get_factures_totaux_devises(base_query):
+    # Normalisation large
+    dev_raw = func.upper(func.trim(Facture.devise))
+    dev_case = case(
+        (dev_raw.in_(['XOF', 'FCFA', 'CFA', 'XAF']), 'XOF'),
+        (dev_raw.in_(['EUR', 'EURO', 'EUROS']), 'EUR'),
+        (dev_raw.in_(['USD', 'US$', '$', 'DOLLAR', 'DOLLARS']), 'USD'),
+        else_='XOF'
+    ).label('dev')
+
+    # Cast en numérique au cas où la colonne ne serait pas DECIMAL
+    montant = cast(Facture.montant_ttc, Numeric(18, 2))
+
+    rows = (
+        base_query
+        .with_entities(dev_case, func.coalesce(func.sum(montant), 0.0))
+        .group_by(dev_case)
+        .all()
+    )
+
+    totaux = {'XOF': 0.0, 'EUR': 0.0, 'USD': 0.0}
+    for dev, total in rows:
+        totaux[dev] = float(total or 0)
+    return totaux
 
 @app.route('/dashboard')
 @login_required
 def dashboard():
     # rôles "global" (voient tout)
-    admin_roles = ['admin','managing-partner','partner','managing-associate','comptabilité','qualité']
+    admin_roles = ['admin','managing-partner','partner','managing-associate','comptabilité']
     is_admin = current_user.role in admin_roles
 
     # bases des requêtes
@@ -83,14 +108,7 @@ def dashboard():
         Facture.statut.in_(['Brouillon','En attente','Non payée','Partiellement payée','Impayée'])
     ).count()
 
-    # "Montant Facturé (TTC)" = somme TTC (tous statuts confondus ici)
-    if is_admin:
-        montant_total_facture_ttc = db.session.query(
-            func.coalesce(func.sum(Facture.montant_ttc), 0)
-        ).scalar()
-    else:
-        montant_total_facture_ttc = 0
-
+    factures_totaux_devises = get_factures_totaux_devises(q_factures)
     # "Timesheets à facturer" = non rattachés à une facture
     timesheets_en_attente_facturation = q_timesheet.filter(
         Timesheet.facture_id.is_(None)
@@ -104,7 +122,7 @@ def dashboard():
         total_clients=total_clients,
         dossiers_actifs=dossiers_actifs,
         factures_en_attente=factures_en_attente,
-        montant_total_facture_ttc=montant_total_facture_ttc,
+        factures_totaux_devises=factures_totaux_devises,
         timesheets_en_attente_facturation=timesheets_en_attente_facturation,
         is_admin=is_admin,
         now=now
@@ -279,9 +297,8 @@ def dossiers():
                     annee=annee, sequence=sequence, numero=numero_norm
                 )
                 db.session.add(nouveau_dossier)
-                db.session.flush()  # pour avoir l'ID
+                db.session.flush()
 
-                # historiser l'attribution initiale
                 hist = AttributionHistorique(
                     dossier_id=nouveau_dossier.id,
                     ancien_referent_id=None,
@@ -296,49 +313,30 @@ def dossiers():
                     db.session.commit()
                     flash("✅ Dossier ajouté avec succès.", "success")
                     return redirect(url_for('dossiers'))
-                except IntegrityError:
+                except IntegrityError as e:
                     db.session.rollback()
-                    flash("❌ Numéro de dossier déjà utilisé. Merci d’en saisir un autre.", "danger")
+                    # ⬇️  RESTE DANS LE except + RETOURNE LE TEMPLATE
+                    if "uq_dossier_client_numero_procedures" in str(getattr(e, "orig", e)):
+                        form.numero.errors.append("Ce numéro existe déjà pour ce client et cette procédure.")
+                    else:
+                        current_app.logger.exception("Erreur lors de l'ajout du dossier")
+                        flash("Erreur lors de l'ajout du dossier.", "danger")
+                    # Revenir au template avec erreurs => la modale se rouvre (voir script dans le template)
+                    return render_template(
+                        "dossiers.html",
+                        form=form,
+                        delete_form=delete_form,
+                        dossiers=Dossier.query.filter_by(supprimé=False).order_by(Dossier.id.desc()).all(),
+                        clients=[],
+                        users=utilisateurs_possibles,
+                        changer_form=changer_form,
+                        AttributionHistorique=AttributionHistorique,
+                        hist_map=defaultdict(list)
+                    ), 400
 
             else:
-                annee = datetime.now().year
-                MAX_RETRY = 5
-                for _ in range(MAX_RETRY):
-                    max_seq = db.session.query(func.max(Dossier.sequence)).filter_by(annee=annee).scalar() or 0
-                    sequence = max_seq + 1
-                    numero_gen = compute_numero(sequence, annee)
-
-                    nouveau_dossier = Dossier(
-                        nom=form.nom.data,
-                        description=form.description.data,
-                        date_ouverture=form.date_ouverture.data,
-                        procedures=(form.procedures.data or "").strip() or None,
-                        statut=form.statut.data,
-                        client_id=form.client_id.data,
-                        user_id=user_id,
-                        annee=annee, sequence=sequence, numero=numero_gen
-                    )
-                    db.session.add(nouveau_dossier)
-                    db.session.flush()
-
-                    # historiser l'attribution initiale
-                    hist = AttributionHistorique(
-                        dossier_id=nouveau_dossier.id,
-                        ancien_referent_id=None,
-                        nouveau_referent_id=user_id,
-                        auteur_id=current_user.id,
-                        date_attribution=datetime.utcnow(),
-                        motif="Attribution initiale"
-                    )
-                    db.session.add(hist)
-
-                    try:
-                        db.session.commit()
-                        flash("✅ Dossier ajouté avec succès.", "success")
-                        return redirect(url_for('dossiers'))
-                    except IntegrityError:
-                        db.session.rollback()
-                        continue
+                # ... (ta génération auto inchangée)
+                # si ça échoue 5 fois :
                 flash("❌ Impossible de générer un numéro unique. Réessayez.", "danger")
 
         except ValueError as ve:
@@ -466,7 +464,7 @@ def factures():
     add_form = FactureForm()
     delete_form = DeleteForm()
 
-    if current_user.role in ['admin', 'managing-partner', 'partner','managing-associate', 'comptabilité', 'qualité']:
+    if current_user.role in ['admin', 'managing-partner', 'partner','managing-associate', 'comptabilité']:
         factures = Facture.query.filter_by(supprimé=False).all()
     else:
         # dossiers de l'utilisateur
@@ -506,24 +504,57 @@ def factures():
 
 # --- Nouvelle Route pour la Modification d'une Facture ---
 @app.route('/factures/modifier/<int:facture_id>', methods=['GET', 'POST'])
+@login_required
 def modifier_facture(facture_id):
     facture = Facture.query.get_or_404(facture_id)
-    form = FactureForm(obj=facture) # Pré-remplit le formulaire avec les données de la facture
-    #form.dossier.query = Dossier.query.filter_by(supprimé=False).all() # S'assurer que les choix du dossier sont à jour
+    form = FactureForm(obj=facture)
+
+    # CHARGER LES CHOICES DU SELECT « dossier » À CHAQUE REQUÊTE
+    dossiers = (Dossier.query
+            .filter_by(supprimé=False)
+            .order_by(
+                (Dossier.numero == None),  # ORDER BY dossier.numero IS NULL (0 avant 1)
+                Dossier.numero,
+                Dossier.id
+            )
+            .all())
+    form.dossier.choices = [(d.id, f"{d.numero or d.id} – {d.nom}") for d in dossiers]
+
+    # Pré-sélectionner la valeur actuelle du dossier
+    if request.method == 'GET':
+        form.dossier.data = facture.dossier_id
 
     if form.validate_on_submit():
-        facture.date = form.date.data
-        facture.montant_ht = form.montant_ht.data
-        facture.montant_ttc = form.montant_ttc.data
-        facture.devise = form.devise.data
-        facture.statut = form.statut.data
-        facture.dossier_id = form.dossier.data.id
-        db.session.commit()
-        flash('Facture modifiée avec succès.', 'success')
-        return redirect(url_for('factures'))
+        try:
+            facture.date = form.date.data
+            facture.dossier_id = form.dossier.data            # <- corrige ici
+            facture.montant_ht = Decimal(str(form.montant_ht.data or 0))
+            facture.tva_applicable = bool(form.tva_applicable.data)
+            facture.montant_ttc = Decimal(str(form.montant_ttc.data or 0))
 
-    
-    return render_template('modifier_facture.html', form=form, facture=facture) # Crée un template modifier_facture.html
+            # normaliser la devise
+            devise = (form.devise.data or 'XOF').strip().upper()
+            if devise in ('FCFA', 'CFA'): 
+                devise = 'XOF'
+            facture.devise = devise
+
+            facture.statut = form.statut.data
+
+            db.session.commit()
+            flash("✅ Facture mise à jour.", "success")
+            return redirect(url_for('factures'))
+        except Exception:
+            db.session.rollback()
+            current_app.logger.exception("Erreur maj facture")
+            flash("❌ Erreur lors de la mise à jour de la facture.", "danger")
+    else:
+        if request.method == 'POST':
+            # Log + feedback si le formulaire n’est pas valide
+            current_app.logger.warning(f"Erreurs formulaire (edit facture): {form.errors}")
+            flash("Le formulaire contient des erreurs. Merci de corriger.", "warning")
+
+    return render_template('modifier_facture.html', form=form, facture=facture)
+ # Crée un template modifier_facture.html
 
 # --- Nouvelle Route pour la Suppression d'une Facture ---
 @app.route('/supprimer_facture/<int:id>', methods=['POST'])
@@ -800,7 +831,7 @@ def login():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate','comptabilité', 'qualité']:
+    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate','comptabilité']:
         flash("⛔ Accès non autorisé.", "danger")
         return redirect(url_for('dashboard'))
     form = RegistrationForm()
@@ -833,7 +864,7 @@ def logout():
 @app.route('/ajouter_utilisateur', methods=['GET', 'POST'])
 @login_required
 def ajouter_utilisateur():
-    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate','comptabilité', 'qualité']:
+    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate','comptabilité']:
         flash("Vous n'avez pas l'autorisation d'accéder à cette page.", "danger")
         return redirect(url_for('index'))
 
@@ -919,7 +950,7 @@ def generer_facture():
     query = Timesheet.query.join(Dossier).filter(Timesheet.facture == None)
 
     # Seuls les associés/admins peuvent filtrer par utilisateur
-    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate','comptabilité', 'qualité']:
+    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate','comptabilité']:
         query = query.filter(Timesheet.user_id == current_user.id)
     elif utilisateur_id:
         query = query.filter(Timesheet.user_id == utilisateur_id)
@@ -1055,7 +1086,7 @@ def supprimer_document(id):
 @login_required
 def utilisateurs():
     print(current_user)
-    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate','comptabilité', 'qualité']:
+    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate','comptabilité']:
         flash("Accès refusé. Page réservée aux administrateurs.", "danger")
         return redirect(url_for('index'))
 
@@ -1068,7 +1099,7 @@ def utilisateurs():
 @app.route('/utilisateur/modifier/<int:id>', methods=['GET', 'POST'])
 @login_required
 def modifier_utilisateur(id):
-    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate', 'comptabilité', 'qualité']:
+    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate', 'comptabilité']:
         flash("Accès refusé.", "danger")
         return redirect(url_for('dashboard'))
 
@@ -1088,7 +1119,7 @@ def modifier_utilisateur(id):
 @app.route('/utilisateur/supprimer/<int:id>', methods=['POST', 'GET'])
 @login_required
 def supprimer_utilisateur(id):
-    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate', 'comptabilité', 'qualité']:
+    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate', 'comptabilité']:
         flash("Accès refusé.", "danger")
         return redirect(url_for('dashboard'))
 

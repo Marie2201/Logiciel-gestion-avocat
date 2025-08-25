@@ -97,7 +97,13 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body row g-3">
-          <div class="col-md-6">{{ form.numero.label(class="form-label") }}{{ form.numero(class="form-control") }}</div>
+          <div class="col-md-6">{{ form.numero.label(class="form-label") }}{{ form.numero(class="form-control" + (" is-invalid" if form.numero.errors else "")) }}
+            {% if form.numero.errors %}
+              <div class="invalid-feedback">
+                {{ form.numero.errors[0] }}
+              </div>
+            {% endif %}
+          </div>
           <div class="col-md-6">{{ form.nom.label(class="form-label") }}{{ form.nom(class="form-control") }}</div>
           <div class="col-md-6">{{ form.date_ouverture.label(class="form-label") }}{{ form.date_ouverture(class="form-control") }}</div>
           <div class="col-md-6">{{ form.procedures.label(class="form-label") }}{{ form.procedures(class="form-control") }}{% if form.procedures.errors %}
@@ -224,6 +230,16 @@
 {% endblock %}
 
 {% block scripts %}
+{% if form.errors %}
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const modal = document.getElementById('ajoutDossierModal');
+  if (modal && window.bootstrap?.Modal) {
+    new bootstrap.Modal(modal).show();
+  }
+});
+</script>
+{% endif %}
 
 <script>
 (function () {

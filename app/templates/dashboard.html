@@ -46,23 +46,46 @@
             </div>
         </div>
     </div>
-
+   
     <!-- Ligne 2 : 2 dernières cartes -->
-    <div class="row g-4 mb-5">
-    {# Montant Facturé (TTC) — visible seulement si autorisé #}
-    {% if is_admin %}
-    <div class="col-lg-6 col-md-6 col-sm-12">
-        <div class="card dashboard-card bg-gradient-info shadow-lg">
-        <div class="card-body position-relative">
-            <i class="bi bi-piggy-bank card-icon"></i>
-            <h5 class="card-title">Montant Facturé (TTC)</h5>
-            <p class="card-value">{{ "{:,.2f}".format(montant_total_facture_ttc) }} FCFA</p>
-        </div>
+    <!-- Carte KPI : Montant facturé (FCFA / EUR / USD) -->
+     <div class="row g-4 align-items-stretch">
+        <div class="col-12 col-md-6 col-xl-4">
+            {% if is_admin %}
+        <div class="card kpi-card text-white border-0 shadow-sm bg-teal-gradient position-relative overflow-hidden">
+            <div class="card-body py-4">
+            <div class="d-flex justify-content-between align-items-start">
+                <h5 class="fw-semibold m-0">Montant facturé</h5>
+                <i class="bi bi-cash-coin kpi-bg-icon"></i>
+            </div>
+
+            <hr class="border-light opacity-25 my-3">
+
+            <div class="small">
+                <div class="d-flex justify-content-between align-items-baseline mb-1">
+                <span>FCFA</span>
+                <strong class="fs-5">
+                    {{ "{:,.0f}".format(factures_totaux_devises.get('XOF', 0)) | replace(",", " ") }} FCFA
+                </strong>
+                </div>
+                <div class="d-flex justify-content-between align-items-baseline mb-1">
+                <span>EUR</span>
+                <strong class="fs-6">
+                    {{ "{:,.2f}".format(factures_totaux_devises.get('EUR', 0)) | replace(",", " ") | replace(".", ",") }} €
+                </strong>
+                </div>
+                <div class="d-flex justify-content-between align-items-baseline">
+                <span>USD</span>
+                <strong class="fs-6">
+                    {{ "{:,.2f}".format(factures_totaux_devises.get('USD', 0)) | replace(",", " ") | replace(".", ",") }} $
+                </strong>
+                </div>
+            </div>
+            </div>
         </div>
     </div>
-    {% endif %}
-
-        <!-- Timesheets à facturer -->
+        {% endif %}
+     <!-- Timesheets à facturer -->
         <div class="col-lg-6 col-md-6 col-sm-12">
             <div class="card dashboard-card bg-gradient-danger shadow-lg">
                 <div class="card-body position-relative">
@@ -73,6 +96,7 @@
             </div>
         </div>
     </div>
+    </div>   
 
 
     <h3 class="mb-4 text-primary"><i class="bi bi-box-arrow-in-right me-2"></i>Accès Rapides</h3>

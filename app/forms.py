@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, TextAreaField, SelectField, DateField, TimeField, SubmitField, DecimalField, PasswordField, BooleanField, HiddenField
-from wtforms.validators import DataRequired, Optional, Email, NumberRange, Length, EqualTo, Regexp
+from wtforms.validators import DataRequired, Optional, Email, NumberRange, Length, EqualTo, Regexp, ValidationError
 from wtforms.fields import EmailField
 from wtforms_sqlalchemy.fields import QuerySelectField
 from datetime import date
@@ -99,7 +99,21 @@ class DossierForm(FlaskForm):
     user_id = SelectField('Attribuer à', coerce=int, choices=[])
     submit = SubmitField("Enregistrer")
 
+    def validate_numero(self, field):
+        """Optionnel : lever uniquement si VRAI doublon (même client, même numéro, même procédure)."""
+        q = Dossier.query.filter_by(
+            client_id=self.client_id.data,
+            numero=field.data,
+            procedures=self.procedures.data  # ou 'procedure=self.procedure.data' si texte
+        )
+        # si édition, exclure le dossier en cours
+        if getattr(self, 'obj_id', None):
+            q = q.filter(Dossier.id != self.obj_id)
 
+        if q.count() > 0:
+            # soit lever une erreur, soit juste un message flash si tu veux autoriser malgré tout
+            raise ValidationError("Ce numéro existe déjà pour ce client et cette procédure.")
+        
 # Fonction pour les choix de Dossier dans QuerySelectField
 def get_dossiers_choices():
     from app import app, db
@@ -108,20 +122,22 @@ def get_dossiers_choices():
 
 #formulaire Factures
 class FactureForm(FlaskForm):
-    date = DateField('Date', validators=[DataRequired()], default=date.today)
-    montant_ht = DecimalField('Montant HT', validators=[DataRequired()])
-    montant_ttc = DecimalField('Montant TTC', validators=[DataRequired()])
-    statut = SelectField('Statut', choices=[('En attente', 'En attente'), ('Payée', 'Payée'), ('Annulée', 'Annulée')], validators=[DataRequired()])
-    devise = SelectField('Devise', choices=[('XOF','FCFA'),('EUR','EUR'),('USD','USD')], validators=[DataRequired()])
-    # Utilise query_factory et spécifie get_label
-    dossier = QuerySelectField(
-        'Dossier',
-        query_factory=get_dossiers_choices, # Appelle cette fonction pour obtenir la requête
-        get_label='nom', # Utilise 'nom' comme étiquette d'affichage pour les objets Dossier
-        allow_blank=False, # Ne pas autoriser un choix vide
-        validators=[DataRequired()]
-    )
-    submit = SubmitField('Enregistrer')
+    date = DateField('Date', validators=[DataRequired()])
+    dossier = SelectField('Dossier', coerce=int, validators=[DataRequired()])
+    devise = SelectField('Devise', choices=[('XOF', 'FCFA'), ('EUR', 'EUR'), ('USD', 'USD')])
+    montant_ht = DecimalField('Montant HT', places=2, rounding=None)
+    tva_applicable = BooleanField('TVA')
+    montant_ttc = DecimalField('Montant TTC', places=2, rounding=None)
+    statut = SelectField('Statut', choices=[
+        ('Brouillon','Brouillon'),
+        ('En attente','En attente'),
+        ('Non payée','Non payée'),
+        ('Partiellement payée','Partiellement payée'),
+        ('Payée','Payée'),
+        ('Impayée','Impayée'),
+        ('Annulée','Annulée'),
+    ])
+    submit = SubmitField('Enregistrer les modifications')
 
 
 class LoginForm(FlaskForm):
@@ -175,7 +191,17 @@ class RegistrationForm(FlaskForm):
 class UserForm(FlaskForm):
     nom = StringField('Nom', validators=[DataRequired()])
     email = StringField('Email', validators=[DataRequired(), Email()])
-    role = SelectField('Rôle', choices=[('admin', 'Admin'), ('managing-partner', 'Managing-Partner'), ('partner', 'Partner'),('managing-associate', 'Managing-Associate'), ('avocat', 'Avocat'), ('juriste', 'Juriste')], validators=[DataRequired()])
+    role = SelectField("Rôle", choices=[
+        ('managing-partner', 'Managing-Partner'),
+        ('partner', 'Partner'),
+        ('managing-associate', 'Managing-Associate'),
+        ('avocat', 'Avocat'),
+        ('juriste', 'Juriste'),
+        ('admin', 'Admin'),
+        ('clerc', 'Clerc'),
+        ('secrétaire', 'Secrétaire'),
+        ('comptabilité', 'Comptabilité'),
+        ('qualité', 'Qualité')])
 
 
 #attribuer un dossier à 
