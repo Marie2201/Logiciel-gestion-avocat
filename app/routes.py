@@ -42,7 +42,12 @@ def roles_required(*roles):
         return wrapper
     return decorator
 
+def has_role(*roles):
+    return current_user.is_authenticated and getattr(current_user, 'role', None) in roles
+
+
 @app.route('/')
+@login_required
 def index():
     # Si l'utilisateur est déjà connecté, redirigez-le vers le tableau de bord ou timesheets
     if current_user.is_authenticated:
@@ -166,6 +171,7 @@ Le Cabinet
 
 #ajout client
 @app.route('/clients', methods=['GET', 'POST'])
+@login_required
 def clients():
     form = ClientForm()
     delete_form = DeleteForm()
@@ -185,7 +191,7 @@ def clients():
         return redirect(url_for('clients'))
 
     clients = Client.query.filter_by(supprimé=False).all()
-    if current_user.role in ['admin', 'managing-partner', 'partner','managing-associate', 'comptabilité', 'qualité']:
+    if has_role('admin','managing-partner','partner','managing-associate','comptabilité','qualité'):
         clients = Client.query.filter_by(supprimé=False).all()
     else:
         clients = Client.query.filter_by(supprimé=False, user_id=current_user.id).all()
@@ -194,6 +200,7 @@ def clients():
 
 #modifier un client
 @app.route('/clients/modifier/<int:client_id>', methods=['GET', 'POST'])
+@login_required
 def modifier_client(client_id):
     client = Client.query.get_or_404(client_id)
     form = ClientForm(obj=client)
@@ -212,6 +219,7 @@ def modifier_client(client_id):
 
 #supprimer un client
 @app.route('/clients/supprimer/<int:client_id>', methods=['POST'])
+@login_required
 def supprimer_client(client_id):
     client = Client.query.get_or_404(client_id)
     client.supprimé = True
@@ -449,6 +457,7 @@ def modifier_dossier(dossier_id):
 
 #supprimer dossier
 @app.route('/dossiers/supprimer/<int:dossier_id>', methods=['POST'])
+@login_required
 def supprimer_dossier(dossier_id):
     dossier = Dossier.query.get_or_404(dossier_id)
     dossier.supprimé = True
@@ -464,7 +473,7 @@ def factures():
     add_form = FactureForm()
     delete_form = DeleteForm()
 
-    if current_user.role in ['admin', 'managing-partner', 'partner','managing-associate', 'comptabilité']:
+    if has_role('admin','managing-partner','partner','managing-associate','comptabilité'):
         factures = Facture.query.filter_by(supprimé=False).all()
     else:
         # dossiers de l'utilisateur
@@ -558,7 +567,7 @@ def modifier_facture(facture_id):
 
 # --- Nouvelle Route pour la Suppression d'une Facture ---
 @app.route('/supprimer_facture/<int:id>', methods=['POST'])
-#@login_required
+@login_required
 def supprimer_facture(id):
     facture = Facture.query.get_or_404(id)
     db.session.delete(facture)
@@ -675,7 +684,7 @@ def timesheets():
              joinedload(Timesheet.user))
          .filter(Timesheet.supprimé == False))
 
-    if current_user.role not in ['admin', 'managing-partner', 'partner', 'managing-associate', 'comptabilité', 'qualité']:
+    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité','qualité'):
         q = q.filter(Timesheet.user_id == current_user.id)
 
     if client_id:
@@ -713,7 +722,7 @@ def timesheets_par_client():
          .filter(Timesheet.supprimé == False))
 
     # Rôles
-    if current_user.role not in ['admin', 'managing-partner', 'partner', 'managing-associate', 'comptabilité', 'qualité']:
+    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité','qualité'):
         q = q.filter(Timesheet.user_id == current_user.id)
 
     # Évite d’afficher les clients/dossiers supprimés si tu as la colonne
@@ -800,6 +809,7 @@ def edit_timesheet(id):
     return render_template('edit_timesheet.html', form=form, timesheet=timesheet)
 #supprimer un timesheet
 @app.route('/timesheet/delete/<int:id>', methods=['POST'])
+@login_required
 def delete_timesheet(id):
     ts = Timesheet.query.get_or_404(id)
     ts.supprimé = True  # Ne pas supprimer réellement
@@ -830,8 +840,9 @@ def login():
 #     return redirect(url_for('login')) # Redirige vers la page de connexion pour l'instant
 
 @app.route('/register', methods=['GET', 'POST'])
+@login_required
 def register():
-    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate','comptabilité']:
+    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité'):
         flash("⛔ Accès non autorisé.", "danger")
         return redirect(url_for('dashboard'))
     form = RegistrationForm()
@@ -864,7 +875,7 @@ def logout():
 @app.route('/ajouter_utilisateur', methods=['GET', 'POST'])
 @login_required
 def ajouter_utilisateur():
-    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate','comptabilité']:
+    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité'):
         flash("Vous n'avez pas l'autorisation d'accéder à cette page.", "danger")
         return redirect(url_for('index'))
 
@@ -950,7 +961,7 @@ def generer_facture():
     query = Timesheet.query.join(Dossier).filter(Timesheet.facture == None)
 
     # Seuls les associés/admins peuvent filtrer par utilisateur
-    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate','comptabilité']:
+    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité'):
         query = query.filter(Timesheet.user_id == current_user.id)
     elif utilisateur_id:
         query = query.filter(Timesheet.user_id == utilisateur_id)
@@ -962,7 +973,7 @@ def generer_facture():
         query = query.filter(Timesheet.date <= date_fin)
 
     timesheets = query.order_by(Timesheet.date).all()
-    utilisateurs = User.query.all() if current_user.role in ['admin', 'managing-partner', 'partner','managing-associate', 'comptabilité', 'qualité'] else []
+    utilisateurs = User.query.all() if has_role('admin','managing-partner','partner','managing-associate','comptabilité','qualité') else []
 
     return render_template(
         'generer_facture.html',
@@ -1086,7 +1097,7 @@ def supprimer_document(id):
 @login_required
 def utilisateurs():
     print(current_user)
-    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate','comptabilité']:
+    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité','qualité'):
         flash("Accès refusé. Page réservée aux administrateurs.", "danger")
         return redirect(url_for('index'))
 
@@ -1099,7 +1110,7 @@ def utilisateurs():
 @app.route('/utilisateur/modifier/<int:id>', methods=['GET', 'POST'])
 @login_required
 def modifier_utilisateur(id):
-    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate', 'comptabilité']:
+    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité','qualité'):
         flash("Accès refusé.", "danger")
         return redirect(url_for('dashboard'))
 
@@ -1119,7 +1130,7 @@ def modifier_utilisateur(id):
 @app.route('/utilisateur/supprimer/<int:id>', methods=['POST', 'GET'])
 @login_required
 def supprimer_utilisateur(id):
-    if current_user.role not in ['admin', 'managing-partner', 'partner','managing-associate', 'comptabilité']:
+    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité'):
         flash("Accès refusé.", "danger")
         return redirect(url_for('dashboard'))
 

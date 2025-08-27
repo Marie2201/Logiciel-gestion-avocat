@@ -18,6 +18,7 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(basedir, '.env'))
 
 app = Flask(__name__)
+
 if os.getenv("FLASK_ENV") == "development":
     talisman = Talisman(app, content_security_policy=None, force_https=False)
 else:
@@ -106,6 +107,7 @@ def service_worker():
 # ----- Routes / modèles -----
 from app import routes, models
 from app.models import User
+
 
 @login_manager.user_loader
 def load_user(user_id):

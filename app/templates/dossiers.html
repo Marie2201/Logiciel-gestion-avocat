@@ -18,6 +18,7 @@
     <table id="dossiersTable" class="table table-bordered table-hover rounded shadow w-100 overflow-hidden" style="background-color:#ffffff;">
       <thead class="table-success text-dark">
         <tr>
+          <th></th>
           <th>ID Dossier</th>
           <th>Nature du dossier</th>
           <th>Client</th>
@@ -40,6 +41,7 @@
             data-referent="{{ dossier.referent.nom if dossier.referent else 'Non attribué' }}"
             data-statut="{{ dossier.statut }}"
             data-description="{{ dossier.description }}">
+          <td></td> 
           <td>{{ dossier.numero }}</td>
           <td>{{ dossier.nom }}</td>
           <td>{{ dossier.client.societe }}</td>
@@ -230,37 +232,92 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- CSS Buttons + Select -->
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/select/1.7.0/css/select.dataTables.min.css">
+
+<!-- Dépendances export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+
+<!-- DataTables Buttons + Select -->
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
+<script src="https://cdn.datatables.net/select/1.7.0/js/dataTables.select.min.js"></script>
+
 {% if form.errors %}
 <script>
 document.addEventListener('DOMContentLoaded', function(){
   const modal = document.getElementById('ajoutDossierModal');
-  if (modal && window.bootstrap?.Modal) {
-    new bootstrap.Modal(modal).show();
-  }
+  if (modal && window.bootstrap?.Modal) new bootstrap.Modal(modal).show();
 });
 </script>
 {% endif %}
 
 <script>
-(function () {
-  const $table = $('#dossiersTable');
+$(function () {
+  // ========= Références =========
+  const tableEl = '#dossiersTable';
+  const $table  = $(tableEl);
 
-  if (!$.fn.DataTable.isDataTable($table)) {
-    $table.DataTable({
-      autoWidth: false,
-      responsive: true,
-      dom: 'frtip',
-      language: {
-        search: "🔍 Rechercher :",
-        zeroRecords: "Aucun dossier trouvé",
-        paginate: { previous: "Précédent", next: "Suivant" }
+  // ========= DataTable =========
+  const dt = $table.DataTable({
+    responsive: true,
+    autoWidth: false,
+    dom: 'Bfrtip',
+    // Sélection UNIQUEMENT via la 1ère colonne "checkbox"
+    select: { style: 'multi', selector: 'td.select-checkbox' },
+    columnDefs: [
+      { // Colonne 0 = cases de sélection visuelles
+        targets: 0,
+        orderable: false,
+        className: 'select-checkbox no-export',
+        defaultContent: ''
       }
-    });
-  }
-  
+    ],
+    order: [[1, 'asc']], // trie par la 1re vraie colonne de données
+    buttons: [
+      {
+        extend: 'excelHtml5',
+        text: '<i class="bi bi-file-earmark-excel"></i> Exporter Excel ',
+        filename: 'dossiers_selection',
+        exportOptions: {
+          modifier: { selected: true },
+          columns: ':visible:not(.no-export)'
+        }
+      },
+      {
+        extend: 'pdfHtml5',
+        text: '<i class="bi bi-file-pdf"></i> Exporter PDF ',
+        filename: 'dossiers_selection',
+        orientation: 'landscape',
+        pageSize: 'A4',
+        exportOptions: {
+          modifier: { selected: true },
+          columns: ':visible:not(.no-export)'
+        }
+      },
+      {
+        extend: 'print',
+        text: '<i class="bi bi-printer"></i> Imprimer ',
+        exportOptions: {
+          modifier: { selected: true },
+          columns: ':visible:not(.no-export)'
+        }
+      }
+    ],
+    language: {
+      select: { rows: { _: "%d lignes sélectionnées", 0: "", 1: "1 ligne sélectionnée" } }
+    }
+  });
 
-  function parentRow($tr) {
-    return $tr.hasClass('child') ? $tr.prev('tr') : $tr;
+  // ========= Utils =========
+  function parentRowFromCell(cell) {
+    let $tr = $(cell).closest('tr');
+    if ($tr.hasClass('child')) $tr = $tr.prev('tr'); // responsive
+    return $tr;
   }
 
   function openDetailFromRow($tr) {
@@ -268,13 +325,15 @@ document.addEventListener('DOMContentLoaded', function(){
     if (!el) return;
 
     const tds = $tr.find('td');
-    const numero    = el.dataset.numero    || (tds.eq(0).text().trim());
-    const nom       = el.dataset.nom       || (tds.eq(1).text().trim());
-    const client    = el.dataset.client    || (tds.eq(2).text().trim());
-    const date      = el.dataset.date      || (tds.eq(3).text().trim());
-    const procedure = el.dataset.procedure || (tds.eq(4).text().trim());
-    const referent  = el.dataset.referent  || (tds.eq(5).text().trim());
-    const statut    = el.dataset.statut    || (tds.eq(6).text().trim());
+    const off = tds.eq(0).hasClass('select-checkbox') ? 1 : 0; // décalage si col. sélection
+
+    const numero    = el.dataset.numero    || (tds.eq(0+off).text().trim());
+    const nom       = el.dataset.nom       || (tds.eq(1+off).text().trim());
+    const client    = el.dataset.client    || (tds.eq(2+off).text().trim());
+    const date      = el.dataset.date      || (tds.eq(3+off).text().trim());
+    const procedure = el.dataset.procedure || (tds.eq(4+off).text().trim());
+    const referent  = el.dataset.referent  || (tds.eq(5+off).text().trim());
+    const statut    = el.dataset.statut    || (tds.eq(6+off).text().trim());
     const descr     = el.dataset.description || '';
 
     $('#detail-numero').text(numero);
@@ -302,90 +361,44 @@ document.addEventListener('DOMContentLoaded', function(){
     if (modalEl) new bootstrap.Modal(modalEl).show();
   }
 
-  // Empêche la ligne d’ouvrir la modale détail quand on clique sur le bouton « Historique »
+  // Ne pas ouvrir le détail depuis les contrôles (dont la colonne select)
+  function isControl(target) {
+    return $(target).closest('button,[data-bs-toggle],a,input,label,.dt-button,.select-checkbox').length > 0;
+  }
+
+  // Empêcher la ligne d’ouvrir la modale en cliquant sur “Historique”
   $table.on('click', 'button[data-bs-target^="#histModal-"]', function (e) {
     e.stopPropagation();
   });
 
-  // Double-clic (avec fallback simple clic)
-  let clickTimer = null;
-  const CLICK_DELAY = 220;
-
-  $table.on('click', 'tbody tr', function (e) {
-    if ($(e.target).closest('button,[data-bs-toggle],a').length) return;
-    clearTimeout(clickTimer);
-    const $tr = parentRow($(this));
-    clickTimer = setTimeout(() => openDetailFromRow($tr), CLICK_DELAY);
-  });
-
-  $table.on('dblclick', 'tbody tr', function (e) {
-    if ($(e.target).closest('button,[data-bs-toggle],a').length) return;
-    clearTimeout(clickTimer);
-    const $tr = parentRow($(this));
+  // ========= Double-clic uniquement pour le détail =========
+  let clickTimer = null; // (garde si tu veux réactiver un fallback plus tard)
+  $table.on('dblclick', 'tbody td:not(.select-checkbox)', function (e) {
+    if (isControl(e.target)) return; // sécurité
+    const $tr = parentRowFromCell(this);
     openDetailFromRow($tr);
   });
 
-  // Menu contextuel
+  // ========= Menu contextuel =========
   $table.on('contextmenu', 'tbody tr', function (e) {
     e.preventDefault();
     $('#context-menu').css({ top: e.pageY + 'px', left: e.pageX + 'px' }).show();
   });
   $(document).on('click', () => $('#context-menu').hide());
-  
 
-  // Curseur
+  // ========= Curseur pointeur =========
   $('<style>#dossiersTable tbody tr{cursor:pointer}</style>').appendTo(document.head);
-})();
 
-(function () {
-  // ===== Compact mode pour #dossiersTable (corps + en-têtes) =====
+  // ========= Mode compact =========
   (function compactDossiersTable() {
     const css = `
-      /* Corps : police + paddings réduits */
-      #dossiersTable.compact tbody td{
-        font-size:12px !important;
-        padding:4px 6px !important;
-        line-height:1.1 !important;
-        white-space:nowrap;                /* garde fin, comme pour timesheets */
-      }
-
-      /* Badges plus petits (Statut, etc.) */
-      #dossiersTable.compact .badge{
-        font-size:10px !important;
-        padding:.15rem .35rem !important;
-      }
-
-      /* En-têtes uniquement (comme demandé) */
-      #dossiersTable.compact thead th{
-        font-size:10px !important;
-        padding:3px 6px !important;
-        line-height:1.05 !important;
-        vertical-align:middle !important;
-        white-space:nowrap !important;
-      }
-      /* Icônes de tri (Bootstrap/DataTables) plus fines + rapprochées */
-      #dossiersTable.dataTable thead th.sorting,
-      #dossiersTable.dataTable thead th.sorting_asc,
-      #dossiersTable.dataTable thead th.sorting_desc{
-        padding-right:14px !important;
-        background-size:9px 9px !important;
-        background-position:right 4px center !important;
-      }
-      #dossiersTable thead .sorting:before,
-      #dossiersTable thead .sorting_asc:before,
-      #dossiersTable thead .sorting_desc:before,
-      #dossiersTable thead .sorting:after,
-      #dossiersTable thead .sorting_asc:after,
-      #dossiersTable thead .sorting_desc:after{
-        font-size:.6rem !important;
-        right:.25rem !important;
-      }
-
-      /* Optionnel : autoriser l'enroulement d'une colonne si tu mets class="wrap" */
-      #dossiersTable.compact .wrap{
-        white-space:normal !important;
-        max-width:260px;
-      }
+      #dossiersTable.compact tbody td{ font-size:12px!important; padding:4px 6px!important; line-height:1.1!important; white-space:nowrap; }
+      #dossiersTable.compact .badge{ font-size:10px!important; padding:.15rem .35rem!important; }
+      #dossiersTable.compact thead th{ font-size:10px!important; padding:3px 6px!important; line-height:1.05!important; vertical-align:middle!important; white-space:nowrap!important; }
+      #dossiersTable.dataTable thead th.sorting, #dossiersTable.dataTable thead th.sorting_asc, #dossiersTable.dataTable thead th.sorting_desc{ padding-right:14px!important; background-size:9px 9px!important; background-position:right 4px center!important; }
+      #dossiersTable thead .sorting:before, #dossiersTable thead .sorting_asc:before, #dossiersTable thead .sorting_desc:before,
+      #dossiersTable thead .sorting:after,  #dossiersTable thead .sorting_asc:after,  #dossiersTable thead .sorting_desc:after{ font-size:.6rem!important; right:.25rem!important; }
+      #dossiersTable.compact .wrap{ white-space:normal!important; max-width:260px; }
     `;
     if (!document.getElementById('dossiers-compact-css')) {
       const style = document.createElement('style');
@@ -393,14 +406,10 @@ document.addEventListener('DOMContentLoaded', function(){
       style.textContent = css;
       document.head.appendChild(style);
     }
-
-    // Active le mode compact + recalage colonnes si la DataTable est prête
     const tbl = document.getElementById('dossiersTable');
     if (tbl) tbl.classList.add('compact');
-    try { setTimeout(() => $('#dossiersTable').DataTable().columns.adjust().draw(false), 0); } catch(e) {}
+    try { setTimeout(() => dt.columns.adjust().draw(false), 0); } catch(e) {}
   })();
-})();
-
-
+});
 </script>
 {% endblock %}
