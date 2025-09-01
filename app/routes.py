@@ -191,7 +191,7 @@ def clients():
         return redirect(url_for('clients'))
 
     clients = Client.query.filter_by(supprimé=False).all()
-    if has_role('admin','managing-partner','partner','managing-associate','comptabilité','qualité'):
+    if has_role('admin','managing-partner','partner','managing-associate','comptabilité','qualité','user-manager'):
         clients = Client.query.filter_by(supprimé=False).all()
     else:
         clients = Client.query.filter_by(supprimé=False, user_id=current_user.id).all()
@@ -247,7 +247,7 @@ def compute_numero(sequence: int, annee: int) -> str:
     return f"{seq_str}/{yy}"
 
 #ajout dossiers
-ADMIN_ROLES = {"admin", "managing-partner", "partner", "managing-associate", "comptabilité", "qualité"}
+ADMIN_ROLES = {"admin", "managing-partner", "partner", "managing-associate", "comptabilité", "qualité","user-manager"}
 @app.route('/dossiers', methods=['GET', 'POST'])
 @login_required
 def dossiers():
@@ -267,7 +267,7 @@ def dossiers():
         User.supprimé == False,
         User.role.in_([
             'admin','managing-partner','partner','managing-associate',
-            'juriste','avocat','comptabilité','qualité','clerc','secrétaire'
+            'juriste','avocat','comptabilité','qualité','clerc','secrétaire','user-manager'
         ])
     ).order_by(User.nom).all()
     form.user_id.choices = [(u.id, u.nom) for u in utilisateurs_possibles]
@@ -361,7 +361,7 @@ def dossiers():
     # --- Liste des dossiers (droits/filtre) ---
     client_id = request.args.get('client_id', type=int)
     query = Dossier.query.filter_by(supprimé=False)
-    if current_user.role not in ['admin','managing-partner','partner','managing-associate','comptabilité','qualité']:
+    if current_user.role not in ['admin','managing-partner','partner','managing-associate','comptabilité','qualité', 'user-manager']:
         query = query.filter_by(user_id=current_user.id)
     if client_id:
         query = query.filter_by(client_id=client_id)
@@ -402,7 +402,7 @@ def modifier_dossier(dossier_id):
     form.client_id.choices = [(c.id, f"{c.societe}") for c in Client.query.filter_by(supprimé=False).all()]
     form.user_id.choices = [(u.id, u.nom) for u in User.query.filter(
         User.role.in_(['admin','managing-partner','partner','managing-associate',
-                       'juriste','avocat','comptabilité','qualité','clerc','secrétaire']),
+                       'juriste','avocat','comptabilité','qualité','clerc','secrétaire', 'user-manager']),
         User.supprimé == False
     ).all()]
 
@@ -473,7 +473,7 @@ def factures():
     add_form = FactureForm()
     delete_form = DeleteForm()
 
-    if has_role('admin','managing-partner','partner','managing-associate','comptabilité'):
+    if has_role('admin','managing-partner','partner','managing-associate','comptabilité', 'user-manager'):
         factures = Facture.query.filter_by(supprimé=False).all()
     else:
         # dossiers de l'utilisateur
@@ -684,7 +684,7 @@ def timesheets():
              joinedload(Timesheet.user))
          .filter(Timesheet.supprimé == False))
 
-    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité','qualité'):
+    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité','qualité','user-manager'):
         q = q.filter(Timesheet.user_id == current_user.id)
 
     if client_id:
@@ -722,7 +722,7 @@ def timesheets_par_client():
          .filter(Timesheet.supprimé == False))
 
     # Rôles
-    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité','qualité'):
+    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité','qualité','user-manager'):
         q = q.filter(Timesheet.user_id == current_user.id)
 
     # Évite d’afficher les clients/dossiers supprimés si tu as la colonne
@@ -842,7 +842,7 @@ def login():
 @app.route('/register', methods=['GET', 'POST'])
 @login_required
 def register():
-    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité'):
+    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité','user-manager'):
         flash("⛔ Accès non autorisé.", "danger")
         return redirect(url_for('dashboard'))
     form = RegistrationForm()
@@ -875,7 +875,7 @@ def logout():
 @app.route('/ajouter_utilisateur', methods=['GET', 'POST'])
 @login_required
 def ajouter_utilisateur():
-    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité'):
+    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité','user-manager'):
         flash("Vous n'avez pas l'autorisation d'accéder à cette page.", "danger")
         return redirect(url_for('index'))
 
@@ -961,7 +961,7 @@ def generer_facture():
     query = Timesheet.query.join(Dossier).filter(Timesheet.facture == None)
 
     # Seuls les associés/admins peuvent filtrer par utilisateur
-    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité'):
+    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité','user-manager'):
         query = query.filter(Timesheet.user_id == current_user.id)
     elif utilisateur_id:
         query = query.filter(Timesheet.user_id == utilisateur_id)
@@ -973,7 +973,7 @@ def generer_facture():
         query = query.filter(Timesheet.date <= date_fin)
 
     timesheets = query.order_by(Timesheet.date).all()
-    utilisateurs = User.query.all() if has_role('admin','managing-partner','partner','managing-associate','comptabilité','qualité') else []
+    utilisateurs = User.query.all() if has_role('admin','managing-partner','partner','managing-associate','comptabilité','qualité','user-manager') else []
 
     return render_template(
         'generer_facture.html',
@@ -1097,7 +1097,7 @@ def supprimer_document(id):
 @login_required
 def utilisateurs():
     print(current_user)
-    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité','qualité'):
+    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité','qualité','user-manager'):
         flash("Accès refusé. Page réservée aux administrateurs.", "danger")
         return redirect(url_for('index'))
 
@@ -1110,7 +1110,7 @@ def utilisateurs():
 @app.route('/utilisateur/modifier/<int:id>', methods=['GET', 'POST'])
 @login_required
 def modifier_utilisateur(id):
-    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité','qualité'):
+    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité','qualité','user-manager'):
         flash("Accès refusé.", "danger")
         return redirect(url_for('dashboard'))
 
@@ -1130,7 +1130,7 @@ def modifier_utilisateur(id):
 @app.route('/utilisateur/supprimer/<int:id>', methods=['POST', 'GET'])
 @login_required
 def supprimer_utilisateur(id):
-    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité'):
+    if not has_role('admin','managing-partner','partner','managing-associate','comptabilité','user-manager'):
         flash("Accès refusé.", "danger")
         return redirect(url_for('dashboard'))
 
@@ -1158,7 +1158,7 @@ def changer_referent(dossier_id):
     utilisateurs_possibles = User.query.filter(
         User.supprimé == False,
         User.role.in_(['admin','managing-partner','partner','managing-associate',
-                       'juriste','avocat','comptabilité','qualité','clerc','secrétaire'])
+                       'juriste','avocat','comptabilité','qualité','clerc','secrétaire','user-manager'])
     ).order_by(User.nom).all()
     form.nouveau_referent.choices = [(u.id, u.nom) for u in utilisateurs_possibles]
 

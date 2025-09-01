@@ -161,7 +161,8 @@ class AjoutUtilisateurForm(FlaskForm):
         ('clerc', 'Clerc'),
         ('secrétaire', 'Secrétaire'),
         ('comptabilité', 'Comptabilité'),
-        ('qualité', 'Qualité')
+        ('qualité', 'Qualité'),
+        ('user-manager', 'User-manager')
 
     ], validators=[DataRequired()])
     password = PasswordField("Mot de passe", validators=[DataRequired(), Length(min=6)])
@@ -201,7 +202,8 @@ class UserForm(FlaskForm):
         ('clerc', 'Clerc'),
         ('secrétaire', 'Secrétaire'),
         ('comptabilité', 'Comptabilité'),
-        ('qualité', 'Qualité')])
+        ('qualité', 'Qualité'),
+        ('user-manager', 'User-manager')])
 
 
 #attribuer un dossier à 

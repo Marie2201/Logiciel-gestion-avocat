@@ -3,6 +3,8 @@ from datetime import datetime
 from app import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
+from sqlalchemy.dialects.mysql import TINYINT
+from sqlalchemy import JSON
 
 class Client(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -133,6 +135,11 @@ class User(UserMixin, db.Model): # <-- Héritez de UserMixin
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     supprimé = db.Column(db.Boolean, default=False)
+    two_factor_enabled = db.Column(TINYINT(1), default=0, nullable=False)
+    two_factor_method  = db.Column(db.String(20), default='totp')  # 'totp' ou 'email'
+    two_factor_secret  = db.Column(db.String(32), nullable=True)   # base32
+    two_factor_backup  = db.Column(db.Text, nullable=True)         # JSON list hashés
+    last_2fa_at        = db.Column(db.DateTime, nullable=True)
     
 
 
@@ -199,6 +206,16 @@ class CalendarEvent(db.Model):
     created_at= db.Column(db.DateTime, default=datetime.utcnow)
     description = db.Column(db.String(500), nullable=True)
     user = db.relationship('User', backref='calendar_events')
+
+
+class TrustedDevice(db.Model):
+    __tablename__ = 'trusted_devices'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True, nullable=False)
+    device_token = db.Column(db.String(64), unique=True, nullable=False)  # random hex
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    user = db.relationship('User', backref='trusted_devices')
 
 from app import app, db
 with app.app_context():
