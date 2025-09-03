@@ -27,7 +27,7 @@ class Dossier(db.Model):
     nom = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=True)
     date_ouverture = db.Column(db.Date, nullable=False)
-    procedures = db.Column(db.Text, nullable=True)
+    procedures = db.Column(db.String(191), nullable=True)
     __table_args__ = (
         # Empêche seulement les vrais doublons (facultatif, mais conseillé)
         db.UniqueConstraint('client_id', 'numero', 'procedures',
@@ -135,13 +135,13 @@ class User(UserMixin, db.Model): # <-- Héritez de UserMixin
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     supprimé = db.Column(db.Boolean, default=False)
-    two_factor_enabled = db.Column(TINYINT(1), default=0, nullable=False)
-    two_factor_method  = db.Column(db.String(20), default='totp')  # 'totp' ou 'email'
+    two_factor_enabled = db.Column(db.Boolean, nullable=False, default=False)
+    two_factor_method  = db.Column(db.String(20), default='email')  # 'totp' ou 'email'
     two_factor_secret  = db.Column(db.String(32), nullable=True)   # base32
     two_factor_backup  = db.Column(db.Text, nullable=True)         # JSON list hashés
     last_2fa_at        = db.Column(db.DateTime, nullable=True)
-    
-
+    last_login_ip      = db.Column(db.String(45))
+    last_device_fp     = db.Column(db.String(64))
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)

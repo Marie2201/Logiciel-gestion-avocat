@@ -1,0 +1,6 @@
+<form method="post">
+  {{ csrf_token() }}
+  <img src="{{ url_for('twofa_qrcode') }}" alt="QR">
+  <input name="code" autocomplete="one-time-code" required>
+  <button type="submit">Activer</button>
+</form>

@@ -1,4 +1,4 @@
-from flask import render_template, redirect, url_for, flash, request, jsonify, send_from_directory, abort, make_response, current_app
+from flask import render_template, redirect, url_for, session, flash, request, jsonify, send_from_directory, abort, make_response, current_app
 from app.forms import TimesheetForm, ClientForm, DossierForm, DeleteForm, FactureForm, AjoutUtilisateurForm, LoginForm, GenererFactureForm, DummyForm
 from app.forms import DocumentForm, RegistrationForm, UserForm, AttributionForm, FlaskForm, ChangerReferentForm, ChangePasswordForm
 from app.forms import RequestResetForm, ResetPasswordForm
@@ -22,10 +22,13 @@ from decimal import Decimal, ROUND_HALF_UP
 from wtforms.validators import DataRequired, Optional, NumberRange
 from app.utils import generate_reset_token, verify_reset_token, send_reset_email, make_reset_token, reset_url_for
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
-from datetime import time
+import time
 from sqlalchemy import or_,  extract
 from collections import defaultdict
 from sqlalchemy import  Numeric
+from .auth import get_client_ip, issue_email_otp, has_valid_trusted_device, set_trusted_cookie, device_fingerprint
+from .models import TrustedDevice
+import io, pyotp, qrcode
 
 
 #from app import app
@@ -819,19 +822,19 @@ def delete_timesheet(id):
 
 
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    form = LoginForm()
-    if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data.lower()).first()
-        print("USER TROUVÉ :", user) 
-        if user and check_password_hash(user.password_hash, form.password.data):  # ou form.mot_de_passe.data
-            login_user(user, remember=form.remember_me.data)
-            flash('Connexion réussie', 'success')
-            return redirect(url_for('dashboard'))  # ou une autre route après login
-        else:
-            flash('Identifiants incorrects', 'danger')
-    return render_template('login.html', form=form)
+# @app.route('/login', methods=['GET', 'POST'])
+# def login():
+#     form = LoginForm()
+#     if form.validate_on_submit():
+#         user = User.query.filter_by(email=form.email.data.lower()).first()
+#         print("USER TROUVÉ :", user) 
+#         if user and check_password_hash(user.password_hash, form.password.data):  # ou form.mot_de_passe.data
+#             login_user(user, remember=form.remember_me.data)
+#             flash('Connexion réussie', 'success')
+#             return redirect(url_for('dashboard'))  # ou une autre route après login
+#         else:
+#             flash('Identifiants incorrects', 'danger')
+#     return render_template('login.html', form=form)
 
 # Vous aurez aussi besoin de routes pour 'forgot_password' et 'register' si vous incluez les liens.
 # @app.route('/forgot_password')
@@ -1553,4 +1556,137 @@ def api_dossiers():
     })
 
 
+# LOGIN (1er facteur)
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    form = LoginForm()
 
+    # GET → afficher le formulaire
+    if request.method == 'GET':
+        return render_template('login.html', form=form)
+
+    # POST sans validation → réafficher avec erreurs (toujours RETURN)
+    if not form.validate_on_submit():
+        flash('Veuillez remplir correctement le formulaire.')
+        return render_template('login.html', form=form), 400
+
+    # Auth 1er facteur
+    email = form.email.data.strip().lower()
+    pwd   = form.password.data
+    user = User.query.filter_by(email=email).first()
+    if not user or not user.check_password(pwd):
+        flash('Identifiants invalides')
+        return render_template('login.html', form=form), 401
+
+    # Déclencheurs OTP e-mail
+    ip = get_client_ip()
+    fp = device_fingerprint()
+    first_time = (not user.two_factor_enabled) or (user.two_factor_method != 'email')
+    ip_changed = bool(user.last_login_ip) and user.last_login_ip != ip
+    new_device = not has_valid_trusted_device(user)
+
+    if first_time or ip_changed or new_device:
+        session['preauth_user_id'] = user.id
+        issue_email_otp(user.id, user.email)  # envoi du code
+        return redirect(url_for('twofa_verify'))
+
+    # Pas d’OTP nécessaire → connexion directe
+    login_user(user, remember=True)
+    user.last_login_ip = ip
+    user.last_device_fp = fp
+    user.two_factor_enabled = True
+    user.two_factor_method = 'email'
+    db.session.commit()
+    return redirect(url_for('dashboard'))
+
+# SETUP (QR + activation)
+@app.route('/2fa/setup', methods=['GET','POST'])
+@login_required
+def twofa_setup():
+    u = current_user
+    if request.method == 'GET':
+        if not u.two_factor_secret:
+            u.two_factor_secret = pyotp.random_base32(); db.session.commit()
+        return render_template('2fa_setup.html')  # affiche <img src="/2fa/qrcode"> + input code
+    code = request.form.get('code','').strip()
+    totp = pyotp.TOTP(u.two_factor_secret)
+    if totp.verify(code, valid_window=current_app.config['TFA_TOTP_WINDOW']):
+        u.two_factor_enabled = 1; u.two_factor_method = 'totp'; db.session.commit()
+        flash("Double authentification activée.")
+        return redirect(url_for('profile'))
+    flash("Code invalide."); return redirect(url_for('twofa_setup'))
+
+@app.route('/2fa/qrcode')
+@login_required
+def twofa_qrcode():
+    u = current_user
+    issuer = "MyHouda"
+    uri = pyotp.totp.TOTP(u.two_factor_secret).provisioning_uri(name=u.email, issuer_name=issuer)
+    img = qrcode.make(uri); buf = io.BytesIO(); img.save(buf, format='PNG'); buf.seek(0)
+    return send_file(buf, mimetype='image/png')
+
+# VERIFY (2e facteur)
+@app.route('/2fa/verify', methods=['GET','POST'])
+def twofa_verify():
+    uid = session.get('preauth_user_id')
+    if not uid: return redirect(url_for('login'))
+    user = User.query.get(uid)
+
+    if request.method == 'POST':
+        data = session.get('email_otp') or {}
+        if data.get('uid') != user.id:
+            flash("Session OTP invalide."); return redirect(url_for('login'))
+
+        # expire au bout de 10 min, max 5 essais
+        if time.time() - data['ts'] > 600:
+            flash("Code expiré, un nouveau a été envoyé.")
+            issue_email_otp(user.id, user.email); return redirect(url_for('twofa_verify'))
+        if data['tries'] >= 5:
+            flash("Trop d'essais. Nouveau code envoyé.")
+            issue_email_otp(user.id, user.email); return redirect(url_for('twofa_verify'))
+
+        code = request.form.get('code','').strip()
+        if code != data['code']:
+            data['tries'] += 1
+            session['email_otp'] = data
+            flash("Code incorrect."); return redirect(url_for('twofa_verify'))
+
+        # Succès
+        from flask_login import login_user
+        login_user(user, remember=True)
+
+        ip = get_client_ip()
+        fp = device_fingerprint()
+        user.last_login_ip = ip
+        user.last_device_fp = fp
+        user.two_factor_enabled = True
+        user.two_factor_method = 'email'
+        db.session.commit()
+
+        resp = redirect(url_for('dashboard'))
+        if request.form.get('remember_device') == 'on':
+            resp = set_trusted_cookie(resp, user)
+
+        # clean session
+        session.pop('preauth_user_id', None)
+        session.pop('email_otp', None)
+        return resp
+
+    return render_template('2fa_verify.html')
+
+@app.post('/2fa/email/send')
+def twofa_email_send():
+    uid = session.get('preauth_user_id')
+    if not uid:
+        flash("Session expirée, reconnectez-vous.")
+        return redirect(url_for('login'))
+    # retrouve l'utilisateur si besoin d'une vérification
+    from app.models import User
+    u = User.query.get(uid)
+    if not u:
+        flash("Utilisateur introuvable.")
+        return redirect(url_for('login'))
+
+    issue_email_otp(u.id, u.email)  # renvoi du code
+    flash("Nouveau code envoyé par e-mail.")
+    return redirect(url_for('twofa_verify'))

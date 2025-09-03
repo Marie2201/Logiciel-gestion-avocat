@@ -11,6 +11,7 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from flask_talisman import Talisman
 from werkzeug.exceptions import RequestEntityTooLarge
 from flask import redirect, request, flash, url_for
+from ipaddress import ip_network
 
 # ----- ENV -----
 load_dotenv()
@@ -79,6 +80,15 @@ app.logger.info(
     app.config["MAIL_USE_TLS"],
     app.config["MAIL_DEFAULT_SENDER"],
 )
+
+
+
+app.config.from_object('config.Config')
+
+app.config['TRUSTED_CIDRS'] = [
+    ip_network(c.strip()) for c in app.config['INTERNAL_TRUSTED_CIDRS'].split(',') if c.strip()
+]
+
 
 # ----- Extensions -----
 db = SQLAlchemy(app)
