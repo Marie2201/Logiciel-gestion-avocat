@@ -30,7 +30,9 @@ from .auth import get_client_ip, issue_email_otp, has_valid_trusted_device, set_
 from .models import TrustedDevice
 import io, pyotp, qrcode
 
-
+@app.context_processor
+def inject_now():
+    return {'current_year': datetime.now().year}
 #from app import app
 #from flask import render_template
 def roles_required(*roles):
