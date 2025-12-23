@@ -22,7 +22,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from wtforms.validators import DataRequired, Optional, NumberRange
 from app.utils import generate_reset_token, verify_reset_token, send_reset_email, make_reset_token, reset_url_for
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
-import time
+from datetime import time
 from sqlalchemy import or_,  extract
 from collections import defaultdict
 from sqlalchemy import  Numeric
