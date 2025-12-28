@@ -5,7 +5,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy import JSON
-import time
 from datetime import datetime, time as dt_time
 
 class Client(db.Model):

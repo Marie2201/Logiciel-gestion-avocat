@@ -638,15 +638,13 @@ def timesheets():
                 date=form.date.data,
                 type_facturation='horaire',
                 heure_debut=(
-    form.heure_debut.data
-    if form.heure_debut.data is not None
-    else dt_time(0, 0, 0)
-),
+                form.heure_debut.data
+                if form.heure_debut.data is not None
+                else dt_time(0, 0, 0)),
                 heure_fin=(
-    form.heure_fin.data
-    if form.heure_fin.data is not None
-    else dt_time(0, 0, 0)
-),
+                form.heure_fin.data
+                if form.heure_fin.data is not None
+                else dt_time(0, 0, 0)),
                 duree_heures=duree_h,
                 taux_horaire=form.taux_horaire.data,
                 montant_forfait=None,
@@ -659,8 +657,8 @@ def timesheets():
                 dossier_id=form.dossier_id.data,
                 user_id=current_user.id
             )
-            print("DEBUG time =", time_module)
-            print("DEBUG dt_time =", dt_time)
+            #print("DEBUG time =", time_module)
+            #print("DEBUG dt_time =", dt_time)
 
         else:
             ht  = round(float(form.montant_forfait.data), 2)

@@ -1,13 +1,13 @@
 import secrets, json, hashlib
 import secrets, time, hashlib
 from itsdangerous import URLSafeSerializer, BadSignature
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time as time_module
 from flask import current_app, request, session
 from ipaddress import ip_address
 from .models import TrustedDevice
 from flask_mail import Message
 from app import db, mail
-import time as time_module
+
 
 def get_client_ip():
     xff = request.headers.get('X-Forwarded-For')
