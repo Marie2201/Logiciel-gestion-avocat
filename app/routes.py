@@ -4,7 +4,6 @@ from app.forms import DocumentForm, RegistrationForm, UserForm, AttributionForm,
 from app.forms import RequestResetForm, ResetPasswordForm
 from app.models import Timesheet, Dossier, Client, Facture, User, Document, AttributionHistorique, CalendarEvent
 from app import app, db
-from datetime import datetime, timedelta, date
 from sqlalchemy.sql import func, case, cast
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import login_user, logout_user, login_required, current_user
@@ -22,8 +21,8 @@ from decimal import Decimal, ROUND_HALF_UP
 from wtforms.validators import DataRequired, Optional, NumberRange
 from app.utils import generate_reset_token, verify_reset_token, send_reset_email, make_reset_token, reset_url_for
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+from datetime import datetime, timedelta, time as dt_time
 import time as time_module
-from datetime import datetime, time as dt_time
 from sqlalchemy import or_,  extract
 from collections import defaultdict
 from sqlalchemy import  Numeric
@@ -692,6 +691,7 @@ def timesheets():
     
     if form.errors:
         current_app.logger.info(form.errors)
+        current_app.logger.error(f"DEBUG dt_time type = {type(dt_time)}")
 
     client_id = request.args.get('client_id', type=int)
 
