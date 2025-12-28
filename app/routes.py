@@ -22,7 +22,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from wtforms.validators import DataRequired, Optional, NumberRange
 from app.utils import generate_reset_token, verify_reset_token, send_reset_email, make_reset_token, reset_url_for
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
-import time
+import time as time_module
 from datetime import datetime, time as dt_time
 from sqlalchemy import or_,  extract
 from collections import defaultdict
@@ -796,8 +796,8 @@ def edit_timesheet(id):
         if type_fact == 'forfait':
             timesheet.type_facturation = 'forfait'
             timesheet.montant_forfait = float(form.montant_forfait.data or 0)
-            timesheet.heure_debut = time(0, 0, 0)
-            timesheet.heure_fin   = time(0, 0, 0)
+            timesheet.heure_debut = dt_time(0, 0, 0)
+            timesheet.heure_fin   = dt_time(0, 0, 0)
             timesheet.duree_heures = 0 
             timesheet.taux_horaire = None
             timesheet.montant_ht = round(timesheet.montant_forfait, 2)
@@ -1649,7 +1649,7 @@ def twofa_verify():
             flash("Session OTP invalide."); return redirect(url_for('login'))
 
         # expire au bout de 10 min, max 5 essais
-        if time.time() - data['ts'] > 600:
+        if time_module.time() - data['ts'] > 600:
             flash("Code expiré, un nouveau a été envoyé.")
             issue_email_otp(user.id, user.email); return redirect(url_for('twofa_verify'))
         if data['tries'] >= 5:
