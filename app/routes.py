@@ -22,7 +22,7 @@ from wtforms.validators import DataRequired, Optional, NumberRange
 from app.utils import generate_reset_token, verify_reset_token, send_reset_email, make_reset_token, reset_url_for
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from datetime import datetime, timedelta, time as dt_time
-import time as time_module
+import time as time_lib
 from sqlalchemy import or_,  extract
 from collections import defaultdict
 from sqlalchemy import  Numeric
@@ -1650,7 +1650,7 @@ def twofa_verify():
             flash("Session OTP invalide."); return redirect(url_for('login'))
 
         # expire au bout de 10 min, max 5 essais
-        if time_module.time() - data['ts'] > 600:
+        if time_lib.time() - data['ts'] > 600:
             flash("Code expiré, un nouveau a été envoyé.")
             issue_email_otp(user.id, user.email); return redirect(url_for('twofa_verify'))
         if data['tries'] >= 5:
