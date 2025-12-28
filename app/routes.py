@@ -638,8 +638,16 @@ def timesheets():
             ts = Timesheet(
                 date=form.date.data,
                 type_facturation='horaire',
-                heure_debut=form.heure_debut.data,
-                heure_fin=form.heure_fin.data,
+                heure_debut=(
+    form.heure_debut.data
+    if form.heure_debut.data is not None
+    else dt_time(0, 0, 0)
+),
+                heure_fin=(
+    form.heure_fin.data
+    if form.heure_fin.data is not None
+    else dt_time(0, 0, 0)
+),
                 duree_heures=duree_h,
                 taux_horaire=form.taux_horaire.data,
                 montant_forfait=None,
