@@ -660,6 +660,9 @@ def timesheets():
                 dossier_id=form.dossier_id.data,
                 user_id=current_user.id
             )
+            print("DEBUG time =", time_module)
+            print("DEBUG dt_time =", dt_time)
+
         else:
             ht  = round(float(form.montant_forfait.data), 2)
             ttc = round(ht * (1 + tva_rate), 2) if tva_bool else ht
