@@ -7,7 +7,7 @@ from ipaddress import ip_address
 from .models import TrustedDevice
 from flask_mail import Message
 from app import db, mail
-import time
+import time as time_module
 
 def get_client_ip():
     xff = request.headers.get('X-Forwarded-For')
@@ -51,5 +51,5 @@ def send_email_otp(to_email, code):
 
 def issue_email_otp(user_id, to_email):
     code = f"{secrets.randbelow(1_000_000):06d}"
-    session['email_otp'] = {'uid': user_id, 'code': code, 'ts': time.time(), 'tries': 0}
+    session['email_otp'] = {'uid': user_id, 'code': code, 'ts': time_module.time(), 'tries': 0}
     send_email_otp(to_email, code)
