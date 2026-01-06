@@ -802,17 +802,30 @@ def ajouter_utilisateur():
 
     form = AjoutUtilisateurForm()
     if form.validate_on_submit():
+        # --- AJOUT DE LA VÉRIFICATION ---
+        existing_user = User.query.filter_by(email=form.email.data.strip().lower()).first()
+        if existing_user:
+            flash("🚫 Erreur : Un utilisateur avec cet email existe déjà.", "danger")
+            return render_template('ajouter_utilisateur.html', form=form)
+        # --------------------------------
+
         nouvel_utilisateur = User(
             nom=form.nom.data,
-            email=form.email.data,
+            email=form.email.data.strip().lower(),
             role=form.role.data,
             password_hash=generate_password_hash(form.password.data),
             supprimé=False
         )
-        db.session.add(nouvel_utilisateur)
-        db.session.commit()
-        flash("Utilisateur ajouté avec succès ✅", "success")
-        return redirect(url_for('utilisateurs'))
+        try:
+            db.session.add(nouvel_utilisateur)
+            db.session.commit()
+            flash("Utilisateur ajouté avec succès ✅", "success")
+            return redirect(url_for('utilisateurs'))
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Erreur lors de l'ajout : {e}")
+            flash("Une erreur inattendue est survenue.", "danger")
+            
     return render_template('ajouter_utilisateur.html', form=form)
 
 @app.route('/generer_facture', methods=['GET', 'POST'])
