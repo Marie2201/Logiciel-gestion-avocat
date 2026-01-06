@@ -1,7 +1,7 @@
 import secrets, json, hashlib
 import secrets, time as time_lib, hashlib
 from itsdangerous import URLSafeSerializer, BadSignature
-from datetime import datetime, timedelta, time as dt_time
+from datetime import datetime, timedelta
 from flask import current_app, request, session
 from ipaddress import ip_address
 from .models import TrustedDevice
@@ -51,5 +51,5 @@ def send_email_otp(to_email, code):
 
 def issue_email_otp(user_id, to_email):
     code = f"{secrets.randbelow(1_000_000):06d}"
-    session['email_otp'] = {'uid': user_id, 'code': code, 'ts': dt_time.time(), 'tries': 0}
+    session['email_otp'] = {'uid': user_id, 'code': code, 'ts': datetime.now().timestamp(), 'tries': 0}
     send_email_otp(to_email, code)
