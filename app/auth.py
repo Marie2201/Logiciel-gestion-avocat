@@ -1,7 +1,7 @@
 import secrets, json, hashlib
-import secrets, time as time_lib, hashlib
+import secrets, hashlib
 from itsdangerous import URLSafeSerializer, BadSignature
-from datetime import datetime, timedelta
+import datetime
 from flask import current_app, request, session
 from ipaddress import ip_address
 from .models import TrustedDevice
@@ -26,13 +26,13 @@ def has_valid_trusted_device(user):
     except BadSignature:
         return False
     td = TrustedDevice.query.filter_by(user_id=user.id, device_token=data.get('tok')).first()
-    return td and td.expires_at > datetime.utcnow()
+    return td and td.expires_at > datetime.datetime.utcnow()
 
 def set_trusted_cookie(resp, user):
     tok = secrets.token_hex(32)
     td = TrustedDevice(user_id=user.id, device_token=tok,
-                       created_at=datetime.utcnow(),
-                       expires_at=datetime.utcnow()+timedelta(days=current_app.config['TFA_TRUST_DAYS']))
+                       created_at=datetime.datetime.utcnow(),
+                       expires_at=datetime.datetime.utcnow()+ datetime.timedelta(days=current_app.config['TFA_TRUST_DAYS']))
     db.session.add(td); db.session.commit()
     s = URLSafeSerializer(current_app.config['SECRET_KEY'], salt='trusted-device')
     resp.set_cookie('tdev', s.dumps({'tok': tok}),
@@ -51,5 +51,10 @@ def send_email_otp(to_email, code):
 
 def issue_email_otp(user_id, to_email):
     code = f"{secrets.randbelow(1_000_000):06d}"
-    session['email_otp'] = {'uid': user_id, 'code': code, 'ts': datetime.now().timestamp(), 'tries': 0}
+    session['email_otp'] = {
+        'uid': user_id,
+        'code': code,
+        'ts': datetime.datetime.utcnow().timestamp(),
+        'tries': 0
+    }
     send_email_otp(to_email, code)

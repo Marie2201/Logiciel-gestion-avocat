@@ -21,8 +21,10 @@ from decimal import Decimal, ROUND_HALF_UP
 from wtforms.validators import DataRequired, Optional, NumberRange
 from app.utils import generate_reset_token, verify_reset_token, send_reset_email, make_reset_token, reset_url_for
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
-from datetime import datetime, timedelta, time as dt_time
-import time as time_lib
+import datetime
+import time
+#from datetime import datetime, timedelta, time as dt_time
+#import time as time_lib
 from sqlalchemy import or_,  extract
 from collections import defaultdict
 from sqlalchemy import  Numeric
@@ -30,6 +32,7 @@ from .auth import get_client_ip, issue_email_otp, has_valid_trusted_device, set_
 from .models import TrustedDevice
 import io, pyotp, qrcode
 
+#codage
 @app.context_processor
 def inject_now():
     return {'current_year': datetime.now().year}
@@ -628,7 +631,7 @@ def timesheets():
             dt_debut = datetime.combine(form.date.data, form.heure_debut.data)
             dt_fin   = datetime.combine(form.date.data, form.heure_fin.data)
             if dt_fin < dt_debut:
-                dt_fin += timedelta(days=1)
+                dt_fin += datetime.timedelta(days=1)
             duree_h = round((dt_fin - dt_debut).total_seconds() / 3600.0, 2)
 
             ht  = round(duree_h * float(form.taux_horaire.data), 2)
@@ -640,11 +643,11 @@ def timesheets():
                 heure_debut=(
                 form.heure_debut.data
                 if form.heure_debut.data is not None
-                else dt_time(0, 0, 0)),
+                else datetime.time(0, 0, 0)),
                 heure_fin=(
                 form.heure_fin.data
                 if form.heure_fin.data is not None
-                else dt_time(0, 0, 0)),
+                else datetime.time(0, 0, 0)),
                 duree_heures=duree_h,
                 taux_horaire=form.taux_horaire.data,
                 montant_forfait=None,
@@ -667,8 +670,8 @@ def timesheets():
             ts = Timesheet(
                 date=form.date.data,
                 type_facturation='forfait',
-                heure_debut=dt_time(0,0,0),
-                heure_fin=dt_time(0,0,0),
+                heure_debut=datetime.time(0,0,0),
+                heure_fin=datetime.time(0,0,0),
                 duree_heures=0,
                 taux_horaire=None,
                 montant_forfait=form.montant_forfait.data,
@@ -689,7 +692,7 @@ def timesheets():
     
     if form.errors:
         current_app.logger.info(form.errors)
-        current_app.logger.error(f"DEBUG dt_time type = {type(dt_time)}")
+        current_app.logger.error(f"DEBUG dt_time type = {type(time)}")
 
     client_id = request.args.get('client_id', type=int)
 
@@ -797,8 +800,8 @@ def edit_timesheet(id):
         if type_fact == 'forfait':
             timesheet.type_facturation = 'forfait'
             timesheet.montant_forfait = float(form.montant_forfait.data or 0)
-            timesheet.heure_debut = dt_time(0, 0, 0)
-            timesheet.heure_fin   = dt_time(0, 0, 0)
+            timesheet.heure_debut = datetime.time(0, 0, 0)
+            timesheet.heure_fin   = datetime.time(0, 0, 0)
             timesheet.duree_heures = 0 
             timesheet.taux_horaire = None
             timesheet.montant_ht = round(timesheet.montant_forfait, 2)
@@ -811,7 +814,7 @@ def edit_timesheet(id):
             dt_debut = datetime.combine(form.date.data, form.heure_debut.data)
             dt_fin = datetime.combine(form.date.data, form.heure_fin.data)
             if dt_fin < dt_debut:
-                dt_fin += timedelta(days=1)  # ✅ passage minuit aussi en édition
+                dt_fin += datetime.timedelta(days=1)  # ✅ passage minuit aussi en édition
             timesheet.duree_heures = round((dt_fin - dt_debut).total_seconds() / 3600, 2)
             timesheet.taux_horaire = float(form.taux_horaire.data or 0)
             timesheet.montant_ht = round(timesheet.duree_heures * timesheet.taux_horaire, 2)

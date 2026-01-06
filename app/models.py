@@ -1,11 +1,11 @@
 from sqlalchemy import Boolean
-from datetime import datetime
 from app import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy import JSON
-from datetime import datetime, time as dt_time
+import datetime
+import time 
 
 class Client(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -65,11 +65,11 @@ class Timesheet(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.Date, default=datetime.utcnow)
     supprimé = db.Column(Boolean, default=False)  # Pour garder l’historique intact
-    heure_debut = db.Column(db.Time, nullable=False, default=dt_time(0, 0, 0))
+    heure_debut = db.Column(db.Time, nullable=False, default=datetime.time(0, 0, 0))
 
     #heure_debut = db.Column(db.Time, nullable=False)
     #heure_fin = db.Column(db.Time, nullable=False)
-    heure_fin = db.Column(db.Time, nullable=False, default=dt_time(0, 0, 0))
+    heure_fin = db.Column(db.Time, nullable=False, default=datetime.time(0, 0, 0))
     duree_heures = db.Column(db.Float)  # à calculer automatiquement
 
     description = db.Column(db.Text)
