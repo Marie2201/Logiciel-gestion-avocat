@@ -145,6 +145,13 @@ class User(UserMixin, db.Model): # <-- Héritez de UserMixin
     last_2fa_at        = db.Column(db.DateTime, nullable=True)
     last_login_ip      = db.Column(db.String(45))
     last_device_fp     = db.Column(db.String(64))
+    suspended = db.Column(
+    db.Boolean,
+    nullable=False,
+    default=False,
+    server_default=db.text('0')
+)
+
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -205,7 +212,7 @@ class CalendarEvent(db.Model):
     title     = db.Column(db.String(255), nullable=False)
     start     = db.Column(db.DateTime, nullable=False)
     end       = db.Column(db.DateTime, nullable=True)
-    user_id   = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id   = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     created_at= db.Column(db.DateTime, default=datetime.utcnow)
     description = db.Column(db.String(500), nullable=True)
     user = db.relationship('User', backref='calendar_events')
