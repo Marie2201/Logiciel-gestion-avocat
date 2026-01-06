@@ -3,7 +3,7 @@ from wtforms import StringField, TextAreaField, SelectField, DateField, TimeFiel
 from wtforms.validators import DataRequired, Optional, Email, NumberRange, Length, EqualTo, Regexp, ValidationError
 from wtforms.fields import EmailField
 from wtforms_sqlalchemy.fields import QuerySelectField
-#from datetime import date
+from datetime import date
 from app.models import Dossier, Client
 from flask_wtf.file import FileField, FileAllowed, FileRequired
 

@@ -1,13 +1,11 @@
-import secrets, json, hashlib
-import secrets, hashlib
-from itsdangerous import URLSafeSerializer, BadSignature
+import secrets
+import hashlib
 import datetime
+from itsdangerous import URLSafeSerializer, BadSignature
 from flask import current_app, request, session
-from ipaddress import ip_address
-from .models import TrustedDevice
 from flask_mail import Message
 from app import db, mail
-
+from .models import TrustedDevice
 
 def get_client_ip():
     xff = request.headers.get('X-Forwarded-For')
@@ -26,14 +24,21 @@ def has_valid_trusted_device(user):
     except BadSignature:
         return False
     td = TrustedDevice.query.filter_by(user_id=user.id, device_token=data.get('tok')).first()
+    # Fix: use datetime.datetime.utcnow()
     return td and td.expires_at > datetime.datetime.utcnow()
 
 def set_trusted_cookie(resp, user):
     tok = secrets.token_hex(32)
-    td = TrustedDevice(user_id=user.id, device_token=tok,
-                       created_at=datetime.datetime.utcnow(),
-                       expires_at=datetime.datetime.utcnow()+ datetime.timedelta(days=current_app.config['TFA_TRUST_DAYS']))
-    db.session.add(td); db.session.commit()
+    # Fix: use datetime.datetime.utcnow()
+    now = datetime.datetime.utcnow()
+    td = TrustedDevice(
+        user_id=user.id, 
+        device_token=tok,
+        created_at=now,
+        expires_at=now + datetime.timedelta(days=current_app.config['TFA_TRUST_DAYS'])
+    )
+    db.session.add(td)
+    db.session.commit()
     s = URLSafeSerializer(current_app.config['SECRET_KEY'], salt='trusted-device')
     resp.set_cookie('tdev', s.dumps({'tok': tok}),
                     max_age=current_app.config['TFA_TRUST_DAYS']*24*3600,
@@ -54,6 +59,7 @@ def issue_email_otp(user_id, to_email):
     session['email_otp'] = {
         'uid': user_id,
         'code': code,
+        # Fix: datetime.datetime.utcnow() for valid timestamp
         'ts': datetime.datetime.utcnow().timestamp(),
         'tries': 0
     }
