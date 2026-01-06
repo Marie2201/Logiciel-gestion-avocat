@@ -1,6 +1,7 @@
 import secrets
 import hashlib
 import datetime
+import time  # Standard time library
 from itsdangerous import URLSafeSerializer, BadSignature
 from flask import current_app, request, session
 from flask_mail import Message
@@ -24,12 +25,12 @@ def has_valid_trusted_device(user):
     except BadSignature:
         return False
     td = TrustedDevice.query.filter_by(user_id=user.id, device_token=data.get('tok')).first()
-    # Fix: use datetime.datetime.utcnow()
+    # Use datetime.datetime.utcnow()
     return td and td.expires_at > datetime.datetime.utcnow()
 
 def set_trusted_cookie(resp, user):
     tok = secrets.token_hex(32)
-    # Fix: use datetime.datetime.utcnow()
+    # Use datetime.datetime.utcnow()
     now = datetime.datetime.utcnow()
     td = TrustedDevice(
         user_id=user.id, 
@@ -56,11 +57,11 @@ def send_email_otp(to_email, code):
 
 def issue_email_otp(user_id, to_email):
     code = f"{secrets.randbelow(1_000_000):06d}"
+    # FIX: Use time.time() from the standard time module
     session['email_otp'] = {
         'uid': user_id,
         'code': code,
-        # Fix: datetime.datetime.utcnow() for valid timestamp
-        'ts': datetime.datetime.utcnow().timestamp(),
+        'ts': time.time(), 
         'tries': 0
     }
     send_email_otp(to_email, code)
